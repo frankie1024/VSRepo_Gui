@@ -1,12 +1,13 @@
 using System.Text.Json;
 using System.IO;
 
-namespace vsrepo_Gui.Services;
+namespace VSRepo_Gui.Services;
 
 public sealed class AppStateService
 {
-    private static readonly string StateDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "vsrepo_Gui");
+    private static readonly string StateDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "VSRepo_Gui");
     private static readonly string StatePath = Path.Combine(StateDirectory, "state.json");
+    private static readonly JsonSerializerOptions SaveOptions = new() { WriteIndented = true };
 
     public sealed class AppState
     {
@@ -46,7 +47,7 @@ public sealed class AppStateService
         try
         {
             Directory.CreateDirectory(StateDirectory);
-            var json = JsonSerializer.Serialize(state, new JsonSerializerOptions { WriteIndented = true });
+            var json = JsonSerializer.Serialize(state, SaveOptions);
             File.WriteAllText(StatePath, json);
         }
         catch
@@ -54,3 +55,4 @@ public sealed class AppStateService
         }
     }
 }
+

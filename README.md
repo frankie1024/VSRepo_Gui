@@ -1,6 +1,8 @@
-# vsrepo_Gui
+# VSRepo_Gui
 
-`vsrepo_Gui` is a Windows desktop GUI for `python -m vsrepo.vsrepo`.
+`VSRepo_Gui` is a Windows desktop GUI for `python -m vsrepo.vsrepo`.
+
+Current release: `v1.0.0`
 
 It focuses on the common VapourSynth workflow:
 
@@ -19,5 +21,11 @@ It focuses on the common VapourSynth workflow:
 
 ## Notes
 
-- The application is designed around modern VSRepo, not the old `vsrepo.py` workflow.
 - Elevated operations are supported when VSRepo needs to write into protected directories such as `Program Files`.
+
+## Build And Publish
+
+- Development build: `dotnet build`
+- Release publish: `dotnet publish`
+- Published output: `dist/`
+

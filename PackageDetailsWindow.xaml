@@ -1,0 +1,94 @@
+<ui:FluentWindow x:Class="VSRepo_Gui.PackageDetailsWindow"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                 xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                 xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 mc:Ignorable="d"
+                 Title="Package Details"
+                 Width="820"
+                 Height="720"
+                 MinWidth="680"
+                 MinHeight="560"
+                 WindowStartupLocation="CenterOwner"
+                 ExtendsContentIntoTitleBar="True">
+    <Grid Margin="0,4,0,0">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar Grid.Row="0" Title="Package Details" />
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="24">
+                <DockPanel LastChildFill="False">
+                    <StackPanel DockPanel.Dock="Left">
+                        <TextBlock x:Name="PackageNameTextBlock" FontSize="30" FontWeight="SemiBold" Text="Package" />
+                        <TextBlock x:Name="PackageNamespaceTextBlock" Margin="0,8,0,0" Opacity="0.75" Text="namespace" />
+                    </StackPanel>
+                    <ui:Button x:Name="PackageActionButton"
+                               DockPanel.Dock="Right"
+                               MinWidth="132"
+                               Click="PackageActionButton_Click">
+                        <TextBlock x:Name="PackageActionTextBlock" Text="Install" />
+                    </ui:Button>
+                </DockPanel>
+
+                <TextBlock x:Name="PackageDescriptionTextBlock"
+                           Margin="0,18,0,0"
+                           TextWrapping="Wrap"
+                           FontSize="15"
+                           Opacity="0.85" />
+
+                <UniformGrid Margin="0,20,0,0" Columns="2">
+                    <ui:Card Margin="0,0,10,10" Padding="14"><StackPanel><TextBlock Opacity="0.7" Text="Identifier" /><TextBlock x:Name="PackageIdentifierTextBlock" Margin="0,6,0,0" FontWeight="SemiBold" Text="-" /></StackPanel></ui:Card>
+                    <ui:Card Margin="10,0,0,10" Padding="14"><StackPanel><TextBlock Opacity="0.7" Text="Category" /><TextBlock x:Name="PackageCategoryTextBlock" Margin="0,6,0,0" FontWeight="SemiBold" Text="-" /></StackPanel></ui:Card>
+                    <ui:Card Margin="0,0,10,10" Padding="14"><StackPanel><TextBlock Opacity="0.7" Text="Installed" /><TextBlock x:Name="PackageInstalledTextBlock" Margin="0,6,0,0" FontWeight="SemiBold" Text="-" /></StackPanel></ui:Card>
+                    <ui:Card Margin="10,0,0,10" Padding="14"><StackPanel><TextBlock Opacity="0.7" Text="Latest" /><TextBlock x:Name="PackageLatestTextBlock" Margin="0,6,0,0" FontWeight="SemiBold" Text="-" /></StackPanel></ui:Card>
+                    <ui:Card Margin="0,0,10,10" Padding="14"><StackPanel><TextBlock Opacity="0.7" Text="Published" /><TextBlock x:Name="PackagePublishedTextBlock" Margin="0,6,0,0" FontWeight="SemiBold" Text="-" /></StackPanel></ui:Card>
+                    <ui:Card Margin="10,0,0,10" Padding="14"><StackPanel><TextBlock Opacity="0.7" Text="Type" /><TextBlock x:Name="PackageTypeTextBlock" Margin="0,6,0,0" FontWeight="SemiBold" Text="-" /></StackPanel></ui:Card>
+                </UniformGrid>
+
+                <ui:Card x:Name="LinksCard" Margin="0,16,0,0" Padding="14">
+                    <StackPanel>
+                        <TextBlock FontSize="15" FontWeight="SemiBold" Text="Links" />
+                        <WrapPanel Margin="0,12,0,0">
+                            <ui:Button x:Name="OpenWebsiteButton"
+                                       Style="{StaticResource LinkChipButtonStyle}"
+                                       Click="OpenWebsiteButton_Click">
+                                <TextBlock FontWeight="SemiBold" Text="Website" />
+                            </ui:Button>
+                            <ui:Button x:Name="OpenGitHubButton"
+                                       Style="{StaticResource LinkChipButtonStyle}"
+                                       Click="OpenGitHubButton_Click">
+                                <TextBlock FontWeight="SemiBold" Text="GitHub" />
+                            </ui:Button>
+                            <ui:Button x:Name="OpenDoom9Button"
+                                       Style="{StaticResource LinkChipButtonStyle}"
+                                       Click="OpenDoom9Button_Click">
+                                <TextBlock FontWeight="SemiBold" Text="Doom9" />
+                            </ui:Button>
+                        </WrapPanel>
+                    </StackPanel>
+                </ui:Card>
+
+                <ui:Card Margin="0,16,0,0" Padding="14">
+                    <StackPanel>
+                        <TextBlock FontSize="15" FontWeight="SemiBold" Text="Dependencies" />
+                        <ItemsControl x:Name="DependenciesItemsControl" Margin="0,10,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Margin="0,0,0,8" Padding="10,6" CornerRadius="8" Background="{DynamicResource ControlFillColorSecondaryBrush}">
+                                        <TextBlock Text="{Binding}" />
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </ui:Card>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</ui:FluentWindow>
+

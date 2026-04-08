@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace vsrepo_Gui.Models;
+namespace VSRepo_Gui.Models;
 
 public sealed class VsPackageRoot
 {
@@ -117,8 +117,8 @@ public sealed class PackageItem
     public string ActionText => State switch
     {
         PackageInstallState.NotInstalled => "Install",
-        PackageInstallState.UpdateAvailable => "Upgrade",
-        PackageInstallState.InstalledUnknown => "Force Upgrade",
+        PackageInstallState.UpdateAvailable => "Update",
+        PackageInstallState.InstalledUnknown => "Update",
         _ => "Uninstall",
     };
 
@@ -134,3 +134,4 @@ public sealed class PackageItem
     public bool HasGithub => !string.IsNullOrWhiteSpace(Github);
     public bool HasDoom9 => !string.IsNullOrWhiteSpace(Doom9);
 }
+

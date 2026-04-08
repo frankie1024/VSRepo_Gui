@@ -5,26 +5,33 @@ using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Threading;
-using vsrepo_Gui.Models;
-using vsrepo_Gui.Services;
+using VSRepo_Gui.Models;
+using VSRepo_Gui.Services;
 using Wpf.Ui.Appearance;
 using WpfButton = Wpf.Ui.Controls.Button;
+using WpfControlAppearance = Wpf.Ui.Controls.ControlAppearance;
 using WpfFluentWindow = Wpf.Ui.Controls.FluentWindow;
-using WpfNavigationViewItem = Wpf.Ui.Controls.NavigationViewItem;
+using WpfSymbolRegular = Wpf.Ui.Controls.SymbolRegular;
 using WpfWindowBackdropType = Wpf.Ui.Controls.WindowBackdropType;
 
-namespace vsrepo_Gui;
+namespace VSRepo_Gui;
 
 public partial class MainWindow : WpfFluentWindow
 {
+    private const double NavigationPaneCollapsedWidth = 72;
+    private const double NavigationPaneExpandedWidth = 184;
+    private const string AllCategoriesLabel = "All Categories";
+
+    private static readonly string[] SupportedTargets = ["win64", "win32"];
+    private static readonly string[] StatusFilterOptions = ["All", "Updates", "Installed", "Not Installed", "Unknown Version"];
+
     private readonly VsrepoService _service = new();
     private readonly AppStateService _appStateService = new();
     private readonly ObservableCollection<PackageItem> _visiblePackages = [];
     private readonly CancellationTokenSource _shutdown = new();
     private readonly DispatcherTimer _searchDebounceTimer = new() { Interval = TimeSpan.FromMilliseconds(220) };
-    private CancellationTokenSource? _detailsCts;
 
     private AppStateService.AppState _appState = new();
     private List<PackageItem> _allPackages = [];
@@ -34,56 +41,63 @@ public partial class MainWindow : WpfFluentWindow
     private VsrepoService.VsrepoPaths? _lastPaths;
     private PackageItem? _selectedPackage;
     private bool _isBusy;
+    private bool _isNavigationExpanded;
+
+    private sealed record PackageCommand(string Operation, bool Force);
 
     public MainWindow()
     {
-        AppLog.Write("MainWindow constructor start");
         InitializeComponent();
         SystemThemeWatcher.Watch(this, WpfWindowBackdropType.Mica, true);
 
         PackagesGrid.ItemsSource = _visiblePackages;
-        TargetComboBox.ItemsSource = new[] { "win64", "win32" };
+        TargetComboBox.ItemsSource = SupportedTargets;
         TargetComboBox.SelectedItem = Environment.Is64BitOperatingSystem ? "win64" : "win32";
-        StatusFilterComboBox.ItemsSource = new[] { "All", "Updates", "Installed", "Not Installed", "Unknown Version" };
+        StatusFilterComboBox.ItemsSource = StatusFilterOptions;
         StatusFilterComboBox.SelectedIndex = 0;
-        CategoryFilterComboBox.ItemsSource = new[] { "All Categories" };
+        CategoryFilterComboBox.ItemsSource = new[] { AllCategoriesLabel };
         CategoryFilterComboBox.SelectedIndex = 0;
-        PluginsNavigationItem.IsActive = true;
+        PluginsNavButton.Appearance = WpfControlAppearance.Secondary;
         SetCurrentView("plugins");
-        UpdateDetailsPanel(null);
+        SidebarHost.Width = NavigationPaneCollapsedWidth;
+        UpdateNavigationPaneLayout();
         _searchDebounceTimer.Tick += SearchDebounceTimer_Tick;
 
         Loaded += MainWindow_Loaded;
         Closed += MainWindow_Closed;
-        AppLog.Write("MainWindow constructor end");
     }
 
     private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
         try
         {
-            AppLog.Write("MainWindow loaded");
             RestoreAppState();
             await AutoDetectPythonAsync();
             if (!string.IsNullOrWhiteSpace(PythonPathTextBox.Text))
             {
                 await RefreshPackagesAsync(updateDefinitions: false, reprobe: true, reloadDefinitions: true);
             }
-            AppLog.Write("MainWindow loaded completed");
         }
         catch (Exception ex)
         {
-            AppLog.Write(ex, "MainWindow_Loaded");
-            MessageBox.Show(ex.ToString(), "vsrepo_Gui", MessageBoxButton.OK, MessageBoxImage.Error);
+            HandleException(ex, nameof(MainWindow_Loaded));
             Close();
         }
     }
 
     private void MainWindow_Closed(object? sender, EventArgs e)
     {
-        _detailsCts?.Cancel();
         SaveAppState();
-        SystemThemeWatcher.UnWatch(this);
+        try
+        {
+            if (IsLoaded)
+            {
+                SystemThemeWatcher.UnWatch(this);
+            }
+        }
+        catch
+        {
+        }
         _shutdown.Cancel();
     }
 
@@ -143,16 +157,20 @@ public partial class MainWindow : WpfFluentWindow
         return false;
     }
 
-    private async Task RefreshPackagesAsync(bool updateDefinitions, bool reprobe, bool reloadDefinitions)
+    private async Task RefreshPackagesAsync(bool updateDefinitions, bool reprobe, bool reloadDefinitions, bool allowBusyRefresh = false)
     {
-        if (_isBusy)
+        if (_isBusy && !allowBusyRefresh)
         {
             return;
         }
 
         var selectedIdentifier = _selectedPackage?.Identifier ?? (PackagesGrid.SelectedItem as PackageItem)?.Identifier;
+        var ownsBusyState = !_isBusy;
 
-        SetBusy(true);
+        if (ownsBusyState)
+        {
+            SetBusy(true);
+        }
         try
         {
             if (!await EnsureEnvironmentAsync(reprobe))
@@ -197,19 +215,20 @@ public partial class MainWindow : WpfFluentWindow
         }
         catch (Exception ex)
         {
-            AppLog.Write(ex, "RefreshPackagesAsync");
-            AppendLog(ex.ToString());
-            MessageBox.Show(ex.Message, "vsrepo_Gui", MessageBoxButton.OK, MessageBoxImage.Error);
+            HandleException(ex, nameof(RefreshPackagesAsync));
         }
         finally
         {
-            SetBusy(false);
+            if (ownsBusyState)
+            {
+                SetBusy(false);
+            }
         }
     }
 
     private List<PackageItem> BuildPackageItems(VsPackageRoot root, Dictionary<string, VsrepoService.InstalledPackageInfo> installed, string target)
     {
-        var items = new List<PackageItem>();
+        var items = new List<PackageItem>(root.Packages.Count);
 
         foreach (var package in root.Packages)
         {
@@ -280,23 +299,23 @@ public partial class MainWindow : WpfFluentWindow
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(static category => category, StringComparer.OrdinalIgnoreCase)
             .ToList();
-        categories.Insert(0, "All Categories");
+        categories.Insert(0, AllCategoriesLabel);
 
         CategoryFilterComboBox.ItemsSource = categories;
-        var preferred = !string.IsNullOrWhiteSpace(currentSelection) && !string.Equals(currentSelection, "All Categories", StringComparison.OrdinalIgnoreCase)
+        var preferred = !string.IsNullOrWhiteSpace(currentSelection) && !string.Equals(currentSelection, AllCategoriesLabel, StringComparison.OrdinalIgnoreCase)
             ? currentSelection
             : _appState.CategoryFilter;
 
         CategoryFilterComboBox.SelectedItem = categories.Contains(preferred ?? string.Empty, StringComparer.OrdinalIgnoreCase)
             ? preferred
-            : "All Categories";
+            : AllCategoriesLabel;
     }
 
     private void ApplyFilters(string? preserveIdentifier = null)
     {
         var search = SearchTextBox.Text.Trim();
         var statusFilter = (StatusFilterComboBox.SelectedItem as string) ?? "All";
-        var categoryFilter = (CategoryFilterComboBox.SelectedItem as string) ?? "All Categories";
+        var categoryFilter = (CategoryFilterComboBox.SelectedItem as string) ?? AllCategoriesLabel;
 
         IEnumerable<PackageItem> filtered = _allPackages;
         filtered = statusFilter switch
@@ -308,7 +327,7 @@ public partial class MainWindow : WpfFluentWindow
             _ => filtered,
         };
 
-        if (!string.Equals(categoryFilter, "All Categories", StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(categoryFilter, AllCategoriesLabel, StringComparison.OrdinalIgnoreCase))
         {
             filtered = filtered.Where(x => string.Equals(x.Category, categoryFilter, StringComparison.OrdinalIgnoreCase));
         }
@@ -344,10 +363,6 @@ public partial class MainWindow : WpfFluentWindow
         if (restored is not null)
         {
             PackagesGrid.ScrollIntoView(restored);
-        }
-        else
-        {
-            UpdateDetailsPanel(null);
         }
     }
 
@@ -403,9 +418,9 @@ public partial class MainWindow : WpfFluentWindow
         _appState.PythonPath = PythonPathTextBox.Text.Trim();
         _appState.Target = GetSelectedTarget();
         _appState.StatusFilter = (StatusFilterComboBox.SelectedItem as string) ?? "All";
-        _appState.CategoryFilter = (CategoryFilterComboBox.SelectedItem as string) ?? "All Categories";
+        _appState.CategoryFilter = (CategoryFilterComboBox.SelectedItem as string) ?? AllCategoriesLabel;
         _appState.SearchText = SearchTextBox.Text;
-        _appState.SelectedIdentifier = _selectedPackage?.Identifier ?? string.Empty;
+        _appState.SelectedIdentifier = (PackagesGrid.SelectedItem as PackageItem)?.Identifier ?? string.Empty;
         _appState.Maximized = WindowState == WindowState.Maximized;
         if (WindowState == WindowState.Normal)
         {
@@ -420,10 +435,34 @@ public partial class MainWindow : WpfFluentWindow
 
     private void UpdateCounters()
     {
-        UpdatesCountTextBlock.Text = _allPackages.Count(x => x.State == PackageInstallState.UpdateAvailable).ToString();
-        InstalledCountTextBlock.Text = _allPackages.Count(x => x.State == PackageInstallState.Installed).ToString();
-        NotInstalledCountTextBlock.Text = _allPackages.Count(x => x.State == PackageInstallState.NotInstalled).ToString();
-        UnknownCountTextBlock.Text = _allPackages.Count(x => x.State == PackageInstallState.InstalledUnknown).ToString();
+        var updates = 0;
+        var installed = 0;
+        var notInstalled = 0;
+        var unknown = 0;
+
+        foreach (var item in _allPackages)
+        {
+            switch (item.State)
+            {
+                case PackageInstallState.UpdateAvailable:
+                    updates++;
+                    break;
+                case PackageInstallState.Installed:
+                    installed++;
+                    break;
+                case PackageInstallState.InstalledUnknown:
+                    unknown++;
+                    break;
+                default:
+                    notInstalled++;
+                    break;
+            }
+        }
+
+        UpdatesCountTextBlock.Text = updates.ToString();
+        InstalledCountTextBlock.Text = installed.ToString();
+        NotInstalledCountTextBlock.Text = notInstalled.ToString();
+        UnknownCountTextBlock.Text = unknown.ToString();
     }
 
     private void ApplyPathsToUi(VsrepoService.VsrepoPaths paths)
@@ -436,7 +475,7 @@ public partial class MainWindow : WpfFluentWindow
     private void SetBusy(bool busy)
     {
         _isBusy = busy;
-        RootNavigationView.IsEnabled = !busy;
+        SidebarHost.IsEnabled = !busy;
         Mouse.OverrideCursor = busy ? Cursors.Wait : null;
     }
 
@@ -470,6 +509,89 @@ public partial class MainWindow : WpfFluentWindow
         AppendLog($"ExitCode: {result.ExitCode}");
     }
 
+    private void HandleException(Exception ex, string context)
+    {
+        AppLog.Write(ex, context);
+        AppendLog($"{context}: {ex.Message}");
+        MessageBox.Show(ex.Message, "VSRepo_Gui", MessageBoxButton.OK, MessageBoxImage.Error);
+    }
+
+    private async Task RunBusyOperationAsync(Func<Task> action, string errorContext)
+    {
+        if (_isBusy)
+        {
+            return;
+        }
+
+        SetBusy(true);
+        try
+        {
+            await action();
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            HandleException(ex, errorContext);
+        }
+        finally
+        {
+            SetBusy(false);
+        }
+    }
+
+    private async Task RefreshAfterMutationAsync()
+    {
+        AppendLog("Refreshing package status...");
+        await RefreshPackagesAsync(updateDefinitions: false, reprobe: false, reloadDefinitions: false, allowBusyRefresh: true);
+    }
+
+    private async Task RunPackageActionWorkflowAsync(PackageItem item, string errorContext)
+    {
+        await RunBusyOperationAsync(async () =>
+        {
+            if (await ExecutePackageActionAsync(item))
+            {
+                await RefreshAfterMutationAsync();
+            }
+        }, errorContext);
+    }
+
+    private async Task<VsrepoService.CommandResult> RunVsrepoCommandAsync(
+        string python,
+        string target,
+        string operation,
+        bool requiresElevation,
+        string elevationLogMessage,
+        string elevationPrompt,
+        IEnumerable<string>? packages = null,
+        bool force = false)
+    {
+        if (requiresElevation)
+        {
+            AppendLog(elevationLogMessage);
+        }
+
+        var result = requiresElevation
+            ? await _service.RunVsrepoElevatedAsync(python, target, operation, packages, force, _shutdown.Token)
+            : await _service.RunVsrepoAsync(python, target, operation, packages, force, _shutdown.Token);
+
+        if (!requiresElevation && result.ExitCode != 0 && _service.IsPermissionDenied(result))
+        {
+            if (MessageBox.Show(
+                    elevationPrompt,
+                    "Administrator Rights Required",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question) == MessageBoxResult.Yes)
+            {
+                result = await _service.RunVsrepoElevatedAsync(python, target, operation, packages, force, _shutdown.Token);
+            }
+        }
+
+        return result;
+    }
+
     private bool MutationRequiresElevation(PackageItem item)
     {
         if (_service.IsAdministrator())
@@ -484,218 +606,55 @@ public partial class MainWindow : WpfFluentWindow
         return !_service.CanWriteToPath(targetPath);
     }
 
-    private async Task ExecutePackageActionAsync(PackageItem item)
+    private PackageCommand? GetPackageCommand(PackageItem item)
     {
+        return item.State switch
+        {
+            PackageInstallState.Installed when MessageBox.Show(
+                $"Uninstall {item.Name}?",
+                "Confirm",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question) == MessageBoxResult.Yes
+                => new PackageCommand("uninstall", false),
+            PackageInstallState.InstalledUnknown when MessageBox.Show(
+                $"Force-upgrade {item.Name}? Local unknown files may be overwritten.",
+                "Confirm",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning) == MessageBoxResult.Yes
+                => new PackageCommand("upgrade", true),
+            PackageInstallState.UpdateAvailable => new PackageCommand("upgrade", false),
+            PackageInstallState.NotInstalled => new PackageCommand("install", false),
+            _ => null
+        };
+    }
+
+    private async Task<bool> ExecutePackageActionAsync(PackageItem item)
+    {
+        var command = GetPackageCommand(item);
+        if (command is null)
+        {
+            return false;
+        }
+
         var python = PythonPathTextBox.Text.Trim();
         var target = GetSelectedTarget();
+        var result = await RunVsrepoCommandAsync(
+            python,
+            target,
+            command.Operation,
+            MutationRequiresElevation(item),
+            $"Elevation required for {command.Operation} {item.Identifier}.",
+            "This operation needs administrator rights because VSRepo is writing into a protected directory. Approve a UAC prompt and retry elevated?",
+            [item.Identifier],
+            command.Force);
 
-        string operation;
-        bool force = false;
-        switch (item.State)
-        {
-            case PackageInstallState.Installed:
-                if (MessageBox.Show($"Uninstall {item.Name}?", "Confirm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
-                {
-                    return;
-                }
-                operation = "uninstall";
-                break;
-            case PackageInstallState.InstalledUnknown:
-                if (MessageBox.Show($"Force-upgrade {item.Name}? Local unknown files may be overwritten.", "Confirm", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
-                {
-                    return;
-                }
-                operation = "upgrade";
-                force = true;
-                break;
-            case PackageInstallState.UpdateAvailable:
-                operation = "upgrade";
-                break;
-            default:
-                operation = "install";
-                break;
-        }
-
-        var requiresElevation = MutationRequiresElevation(item);
-        if (requiresElevation)
-        {
-            AppendLog($"Elevation required for {operation} {item.Identifier}.");
-        }
-
-        var result = requiresElevation
-            ? await _service.RunVsrepoElevatedAsync(python, target, operation, [item.Identifier], force, _shutdown.Token)
-            : await _service.RunVsrepoAsync(python, target, operation, [item.Identifier], force, _shutdown.Token);
-
-        if (!requiresElevation && result.ExitCode != 0 && _service.IsPermissionDenied(result))
-        {
-            if (MessageBox.Show(
-                    "This operation needs administrator rights because VSRepo is writing into a protected directory. Approve a UAC prompt and retry elevated?",
-                    "Administrator Rights Required",
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Question) == MessageBoxResult.Yes)
-            {
-                result = await _service.RunVsrepoElevatedAsync(python, target, operation, [item.Identifier], force, _shutdown.Token);
-            }
-        }
-
-        AppendCommandResult($"{operation} {item.Identifier}", result);
+        AppendCommandResult($"{command.Operation} {item.Identifier}", result);
         if (result.ExitCode != 0)
         {
             throw new InvalidOperationException(result.CombinedOutput);
         }
-    }
 
-    private void UpdateDetailsPanel(PackageItem? item)
-    {
-        _selectedPackage = item;
-
-        if (item is null)
-        {
-            DetailNameTextBlock.Text = "Select a package";
-            DetailNamespaceTextBlock.Text = "Namespace / module";
-            DetailDescriptionTextBlock.Text = "Package details will appear here.";
-            DetailIdentifierTextBlock.Text = "-";
-            DetailCategoryTextBlock.Text = "-";
-            DetailInstalledTextBlock.Text = "-";
-            DetailLatestTextBlock.Text = "-";
-            DetailTypeTextBlock.Text = "-";
-            DetailPublishedTextBlock.Text = "-";
-            DetailGithubStatusTextBlock.Text = "No GitHub metadata loaded.";
-            DetailGithubTagTextBlock.Text = "Latest release: -";
-            DetailGithubUpdatedTextBlock.Text = "Updated: -";
-            DetailStateTextBlock.Text = "Idle";
-            DetailStateTextBlock.Foreground = (Brush)Application.Current.Resources["TextBrush"];
-            DetailStateBorder.Background = (Brush)Application.Current.Resources["SurfaceSoftBrush"];
-            DependenciesItemsControl.ItemsSource = Array.Empty<string>();
-            DetailActionButton.IsEnabled = false;
-            CopyIdentifierButton.IsEnabled = false;
-            OpenWebsiteButton.IsEnabled = false;
-            OpenGitHubButton.IsEnabled = false;
-            OpenDoom9Button.IsEnabled = false;
-            RefreshGitHubButton.IsEnabled = false;
-            return;
-        }
-
-        DetailNameTextBlock.Text = item.Name;
-        DetailNamespaceTextBlock.Text = item.NamespaceOrModule;
-        DetailDescriptionTextBlock.Text = item.Description;
-        DetailIdentifierTextBlock.Text = item.Identifier;
-        DetailCategoryTextBlock.Text = item.Category;
-        DetailInstalledTextBlock.Text = string.IsNullOrWhiteSpace(item.InstalledVersion) ? "Not installed" : item.InstalledVersion;
-        DetailLatestTextBlock.Text = item.LatestVersion;
-        DetailTypeTextBlock.Text = item.Type;
-        DetailPublishedTextBlock.Text = item.LatestPublishedText;
-        DependenciesItemsControl.ItemsSource = item.Dependencies.Count > 0 ? item.Dependencies : new[] { "No dependencies" };
-        DetailActionButton.Content = item.ActionText;
-        DetailActionButton.IsEnabled = true;
-        CopyIdentifierButton.IsEnabled = true;
-        OpenWebsiteButton.IsEnabled = item.HasWebsite;
-        OpenGitHubButton.IsEnabled = item.HasGithub;
-        OpenDoom9Button.IsEnabled = item.HasDoom9;
-        RefreshGitHubButton.IsEnabled = item.HasGithub || (!string.IsNullOrWhiteSpace(item.Website) && item.Website.Contains("github.com", StringComparison.OrdinalIgnoreCase));
-
-        ApplyStateBadge(item.State);
-        DetailGithubStatusTextBlock.Text = item.HasGithub ? "Loading GitHub metadata..." : "No GitHub URL available.";
-        DetailGithubTagTextBlock.Text = "Latest release: -";
-        DetailGithubUpdatedTextBlock.Text = "Updated: -";
-    }
-
-    private void ApplyStateBadge(PackageInstallState state)
-    {
-        var backgroundKey = "SurfaceSoftBrush";
-        var foregroundKey = "TextBrush";
-        var label = state switch
-        {
-            PackageInstallState.NotInstalled => "Not Installed",
-            PackageInstallState.UpdateAvailable => "Update Available",
-            PackageInstallState.InstalledUnknown => "Unknown Version",
-            _ => "Installed",
-        };
-
-        switch (state)
-        {
-            case PackageInstallState.Installed:
-                backgroundKey = "SuccessSoftBrush";
-                foregroundKey = "SuccessBrush";
-                break;
-            case PackageInstallState.UpdateAvailable:
-                backgroundKey = "WarningSoftBrush";
-                foregroundKey = "WarningBrush";
-                break;
-            case PackageInstallState.InstalledUnknown:
-                backgroundKey = "DangerSoftBrush";
-                foregroundKey = "DangerBrush";
-                break;
-            case PackageInstallState.NotInstalled:
-                backgroundKey = "AccentSoftBrush";
-                foregroundKey = "AccentBrush";
-                break;
-        }
-
-        DetailStateTextBlock.Text = label;
-        DetailStateBorder.Background = (Brush)Application.Current.Resources[backgroundKey];
-        DetailStateTextBlock.Foreground = (Brush)Application.Current.Resources[foregroundKey];
-    }
-
-    private async Task LoadGitHubDetailsAsync(PackageItem? item, bool forceRefresh = false)
-    {
-        _detailsCts?.Cancel();
-        if (item is null)
-        {
-            return;
-        }
-
-        _detailsCts = CancellationTokenSource.CreateLinkedTokenSource(_shutdown.Token);
-        var token = _detailsCts.Token;
-
-        try
-        {
-            var githubUrl = item.Github;
-            if (string.IsNullOrWhiteSpace(githubUrl) && item.Website?.Contains("github.com", StringComparison.OrdinalIgnoreCase) == true)
-            {
-                githubUrl = item.Website;
-            }
-
-            if (string.IsNullOrWhiteSpace(githubUrl))
-            {
-                DetailGithubStatusTextBlock.Text = "No GitHub repository configured for this package.";
-                return;
-            }
-
-            if (forceRefresh)
-            {
-                DetailGithubStatusTextBlock.Text = "Refreshing GitHub metadata...";
-            }
-
-            var info = await _service.GetGitHubReleaseInfoAsync(githubUrl, forceRefresh, token);
-            if (token.IsCancellationRequested || !ReferenceEquals(item, _selectedPackage))
-            {
-                return;
-            }
-
-            if (info is null)
-            {
-                DetailGithubStatusTextBlock.Text = "No GitHub metadata available.";
-                return;
-            }
-
-            DetailGithubStatusTextBlock.Text = info.Error is null
-                ? info.Source
-                : $"{info.Source}: {info.Error}";
-            DetailGithubTagTextBlock.Text = $"Latest release: {info.LatestTag ?? "No formal release"}";
-            DetailGithubUpdatedTextBlock.Text = $"Updated: {FormatDateDisplay(info.ReleasePublishedAt?.ToString("O") ?? info.RepositoryUpdatedAt?.ToString("O"))}";
-        }
-        catch (OperationCanceledException)
-        {
-        }
-        catch (Exception ex)
-        {
-            AppLog.Write(ex, "LoadGitHubDetailsAsync");
-            if (ReferenceEquals(item, _selectedPackage))
-            {
-                DetailGithubStatusTextBlock.Text = $"GitHub metadata failed: {ex.Message}";
-            }
-        }
+        return true;
     }
 
     private static string FormatDateDisplay(string? raw)
@@ -712,30 +671,12 @@ public partial class MainWindow : WpfFluentWindow
 
     private async void PackageAction_Click(object sender, RoutedEventArgs e)
     {
-        if (_isBusy || sender is not WpfButton { Tag: PackageItem item })
+        if (sender is not WpfButton { Tag: PackageItem item })
         {
             return;
         }
 
-        SetBusy(true);
-        try
-        {
-            await ExecutePackageActionAsync(item);
-            await RefreshPackagesAsync(updateDefinitions: false, reprobe: false, reloadDefinitions: false);
-        }
-        catch (OperationCanceledException)
-        {
-        }
-        catch (Exception ex)
-        {
-            AppLog.Write(ex, "PackageAction_Click");
-            AppendLog(ex.ToString());
-            MessageBox.Show(ex.Message, "vsrepo_Gui", MessageBoxButton.OK, MessageBoxImage.Error);
-        }
-        finally
-        {
-            SetBusy(false);
-        }
+        await RunPackageActionWorkflowAsync(item, nameof(PackageAction_Click));
     }
 
     private async void RefreshButton_Click(object sender, RoutedEventArgs e)
@@ -750,39 +691,20 @@ public partial class MainWindow : WpfFluentWindow
 
     private async void UpgradeAllButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_isBusy)
-        {
-            return;
-        }
-
-        SetBusy(true);
-        try
+        await RunBusyOperationAsync(async () =>
         {
             var python = PythonPathTextBox.Text.Trim();
             var target = GetSelectedTarget();
             var requiresElevation = !_service.IsAdministrator()
                                     && (_service.CanWriteToPath(_lastPaths?.Binaries) == false
                                         || _service.CanWriteToPath(_lastPaths?.Scripts) == false);
-            if (requiresElevation)
-            {
-                AppendLog("Elevation required for upgrade-all.");
-            }
-
-            var result = requiresElevation
-                ? await _service.RunVsrepoElevatedAsync(python, target, "upgrade-all", cancellationToken: _shutdown.Token)
-                : await _service.RunVsrepoAsync(python, target, "upgrade-all", cancellationToken: _shutdown.Token);
-
-            if (!requiresElevation && result.ExitCode != 0 && _service.IsPermissionDenied(result))
-            {
-                if (MessageBox.Show(
-                        "upgrade-all needs administrator rights because VSRepo is writing into a protected directory. Approve a UAC prompt and retry elevated?",
-                        "Administrator Rights Required",
-                        MessageBoxButton.YesNo,
-                        MessageBoxImage.Question) == MessageBoxResult.Yes)
-                {
-                    result = await _service.RunVsrepoElevatedAsync(python, target, "upgrade-all", cancellationToken: _shutdown.Token);
-                }
-            }
+            var result = await RunVsrepoCommandAsync(
+                python,
+                target,
+                "upgrade-all",
+                requiresElevation,
+                "Elevation required for upgrade-all.",
+                "upgrade-all needs administrator rights because VSRepo is writing into a protected directory. Approve a UAC prompt and retry elevated?");
 
             AppendCommandResult("upgrade-all", result);
             if (result.ExitCode != 0)
@@ -790,39 +712,13 @@ public partial class MainWindow : WpfFluentWindow
                 throw new InvalidOperationException(result.CombinedOutput);
             }
 
-            await RefreshPackagesAsync(updateDefinitions: false, reprobe: false, reloadDefinitions: false);
-        }
-        catch (OperationCanceledException)
-        {
-        }
-        catch (Exception ex)
-        {
-            AppLog.Write(ex, "UpgradeAllButton_Click");
-            AppendLog(ex.ToString());
-            MessageBox.Show(ex.Message, "vsrepo_Gui", MessageBoxButton.OK, MessageBoxImage.Error);
-        }
-        finally
-        {
-            SetBusy(false);
-        }
+            await RefreshAfterMutationAsync();
+        }, nameof(UpgradeAllButton_Click));
     }
 
     private async void ProbeButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_isBusy)
-        {
-            return;
-        }
-
-        SetBusy(true);
-        try
-        {
-            await RefreshPackagesAsync(updateDefinitions: false, reprobe: true, reloadDefinitions: false);
-        }
-        finally
-        {
-            SetBusy(false);
-        }
+        await RefreshPackagesAsync(updateDefinitions: false, reprobe: true, reloadDefinitions: false);
     }
 
     private async void DetectPythonButton_Click(object sender, RoutedEventArgs e)
@@ -872,15 +768,25 @@ public partial class MainWindow : WpfFluentWindow
 
     private async void PackagesGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        var item = PackagesGrid.SelectedItem as PackageItem;
-        UpdateDetailsPanel(item);
-        await LoadGitHubDetailsAsync(item);
+        _selectedPackage = PackagesGrid.SelectedItem as PackageItem;
         SaveAppState();
     }
 
-    private async void RefreshGitHubButton_Click(object sender, RoutedEventArgs e)
+    private async void PackagesGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
-        await LoadGitHubDetailsAsync(_selectedPackage, forceRefresh: true);
+        if (PackagesGrid.SelectedItem is PackageItem item)
+        {
+            var dialog = new PackageDetailsWindow(item)
+            {
+                Owner = this
+            };
+            _ = dialog.ShowDialog();
+
+            if (dialog.ShouldRunPrimaryAction)
+            {
+                await RunPackageActionWorkflowAsync(item, nameof(PackagesGrid_MouseDoubleClick));
+            }
+        }
     }
 
     private void ClearLogButton_Click(object sender, RoutedEventArgs e)
@@ -903,63 +809,9 @@ public partial class MainWindow : WpfFluentWindow
         OpenLocation(_lastPaths?.Scripts);
     }
 
-    private void OpenWebsiteButton_Click(object sender, RoutedEventArgs e)
-    {
-        OpenUrl(_selectedPackage?.Website);
-    }
-
-    private void OpenGitHubButton_Click(object sender, RoutedEventArgs e)
-    {
-        OpenUrl(_selectedPackage?.Github);
-    }
-
-    private void OpenDoom9Button_Click(object sender, RoutedEventArgs e)
-    {
-        OpenUrl(_selectedPackage?.Doom9);
-    }
-
-    private async void DetailActionButton_Click(object sender, RoutedEventArgs e)
-    {
-        if (_selectedPackage is null || _isBusy)
-        {
-            return;
-        }
-
-        SetBusy(true);
-        try
-        {
-            await ExecutePackageActionAsync(_selectedPackage);
-            await RefreshPackagesAsync(updateDefinitions: false, reprobe: false, reloadDefinitions: false);
-        }
-        catch (OperationCanceledException)
-        {
-        }
-        catch (Exception ex)
-        {
-            AppLog.Write(ex, "DetailActionButton_Click");
-            AppendLog(ex.ToString());
-            MessageBox.Show(ex.Message, "vsrepo_Gui", MessageBoxButton.OK, MessageBoxImage.Error);
-        }
-        finally
-        {
-            SetBusy(false);
-        }
-    }
-
-    private void CopyIdentifierButton_Click(object sender, RoutedEventArgs e)
-    {
-        if (_selectedPackage is null)
-        {
-            return;
-        }
-
-        Clipboard.SetText(_selectedPackage.Identifier);
-        AppendLog($"Copied identifier: {_selectedPackage.Identifier}");
-    }
-
     private void OpenLogFolderButton_Click(object sender, RoutedEventArgs e)
     {
-        OpenLocation(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "vsrepo_Gui", "logs"));
+        OpenLocation(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "VSRepo_Gui", "logs"));
     }
 
     private void SearchDebounceTimer_Tick(object? sender, EventArgs e)
@@ -967,16 +819,6 @@ public partial class MainWindow : WpfFluentWindow
         _searchDebounceTimer.Stop();
         ApplyFilters(_selectedPackage?.Identifier);
         SaveAppState();
-    }
-
-    private static void OpenUrl(string? url)
-    {
-        if (string.IsNullOrWhiteSpace(url))
-        {
-            return;
-        }
-
-        Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
     }
 
     private static void OpenLocation(string? path)
@@ -998,19 +840,53 @@ public partial class MainWindow : WpfFluentWindow
         }
     }
 
-    private void RootNavigationView_SelectionChanged(object sender, RoutedEventArgs e)
+    private void ToggleNavigationButton_Click(object sender, RoutedEventArgs e)
     {
-        if (RootNavigationView.SelectedItem is WpfNavigationViewItem item)
+        _isNavigationExpanded = !_isNavigationExpanded;
+        UpdateNavigationPaneLayout();
+    }
+
+    private void UpdateNavigationToggleIcon()
+    {
+        ToggleNavigationIcon.Symbol = _isNavigationExpanded
+            ? WpfSymbolRegular.PanelLeftContract24
+            : WpfSymbolRegular.PanelLeftExpand24;
+    }
+
+    private void UpdateNavigationPaneLayout()
+    {
+        var targetWidth = _isNavigationExpanded ? NavigationPaneExpandedWidth : NavigationPaneCollapsedWidth;
+        var animation = new DoubleAnimation
         {
-            var tag = item.Tag as string ?? "plugins";
-            SetCurrentView(tag);
-        }
+            To = targetWidth,
+            Duration = TimeSpan.FromMilliseconds(180),
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseInOut }
+        };
+
+        SidebarHost.BeginAnimation(WidthProperty, animation);
+        SidebarTitleText.Visibility = _isNavigationExpanded ? Visibility.Visible : Visibility.Collapsed;
+        PluginsNavText.Visibility = _isNavigationExpanded ? Visibility.Visible : Visibility.Collapsed;
+        SettingsNavText.Visibility = _isNavigationExpanded ? Visibility.Visible : Visibility.Collapsed;
+        UpdateNavigationToggleIcon();
     }
 
     private void SetCurrentView(string tag)
     {
         var showSettings = string.Equals(tag, "settings", StringComparison.OrdinalIgnoreCase);
+        PluginsNavButton.Appearance = showSettings ? WpfControlAppearance.Transparent : WpfControlAppearance.Secondary;
+        SettingsNavButton.Appearance = showSettings ? WpfControlAppearance.Secondary : WpfControlAppearance.Transparent;
         PluginsView.Visibility = showSettings ? Visibility.Collapsed : Visibility.Visible;
         SettingsView.Visibility = showSettings ? Visibility.Visible : Visibility.Collapsed;
     }
+
+    private void PluginsNavButton_Click(object sender, RoutedEventArgs e)
+    {
+        SetCurrentView("plugins");
+    }
+
+    private void SettingsNavButton_Click(object sender, RoutedEventArgs e)
+    {
+        SetCurrentView("settings");
+    }
 }
+

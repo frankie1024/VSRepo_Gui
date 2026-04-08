@@ -1,21 +1,15 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
-using System.Net;
-using System.Net.Http;
-using System.Net.Http.Headers;
 using System.Security.Principal;
 using System.Text;
 using System.Text.Json;
-using vsrepo_Gui.Models;
+using VSRepo_Gui.Models;
 
-namespace vsrepo_Gui.Services;
+namespace VSRepo_Gui.Services;
 
 public sealed class VsrepoService
 {
-    private static readonly HttpClient GitHubClient = CreateGitHubClient();
-    private static readonly Dictionary<string, GitHubReleaseInfo> GitHubCache = new(StringComparer.OrdinalIgnoreCase);
-
     public sealed record CommandResult(int ExitCode, string StdOut, string StdErr)
     {
         public string CombinedOutput => string.Join(Environment.NewLine, new[] { StdOut, StdErr }.Where(static x => !string.IsNullOrWhiteSpace(x)));
@@ -34,15 +28,6 @@ public sealed class VsrepoService
     public sealed record InstalledPackageInfo(string Identifier, string InstalledVersion, PackageInstallState State);
 
     public sealed record VsrepoPaths(string Definitions, string Binaries, string Scripts, string? DistInfos);
-
-    public sealed record GitHubReleaseInfo(
-        string RepositoryUrl,
-        string? LatestTag,
-        DateTimeOffset? ReleasePublishedAt,
-        DateTimeOffset? RepositoryUpdatedAt,
-        string? ReleaseUrl,
-        string Source,
-        string? Error);
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -142,7 +127,7 @@ public sealed class VsrepoService
     public async Task<CommandResult> RunVsrepoElevatedAsync(string pythonExe, string target, string operation, IEnumerable<string>? packages = null, bool force = false, CancellationToken cancellationToken = default)
     {
         var args = BuildVsrepoArguments(target, operation, packages, force);
-        var workDir = Path.Combine(Path.GetTempPath(), "vsrepo_Gui");
+        var workDir = Path.Combine(Path.GetTempPath(), "VSRepo_Gui");
         Directory.CreateDirectory(workDir);
 
         var token = Guid.NewGuid().ToString("N");
@@ -279,83 +264,6 @@ Set-Content -Path '{{exitCodePath.Replace("'", "''")}}' -Value $LASTEXITCODE -En
                ?? new VsPackageRoot();
     }
 
-    public async Task<GitHubReleaseInfo?> GetGitHubReleaseInfoAsync(string? githubUrl, bool forceRefresh = false, CancellationToken cancellationToken = default)
-    {
-        var repository = NormalizeGitHubRepositoryUrl(githubUrl);
-        if (repository is null)
-        {
-            return null;
-        }
-
-        if (forceRefresh)
-        {
-            GitHubCache.Remove(repository);
-        }
-
-        if (GitHubCache.TryGetValue(repository, out var cached))
-        {
-            return cached;
-        }
-
-        var repoPath = repository.Replace("https://github.com/", string.Empty, StringComparison.OrdinalIgnoreCase);
-
-        try
-        {
-            using var latestResponse = await GitHubClient.GetAsync($"repos/{repoPath}/releases/latest", cancellationToken);
-            if (latestResponse.IsSuccessStatusCode)
-            {
-                using var latestJson = JsonDocument.Parse(await latestResponse.Content.ReadAsStringAsync(cancellationToken));
-                var root = latestJson.RootElement;
-                var releaseInfo = new GitHubReleaseInfo(
-                    repository,
-                    root.TryGetProperty("tag_name", out var tag) ? tag.GetString() : null,
-                    TryReadDate(root, "published_at"),
-                    null,
-                    root.TryGetProperty("html_url", out var htmlUrl) ? htmlUrl.GetString() : repository,
-                    "GitHub latest release",
-                    null);
-
-                GitHubCache[repository] = releaseInfo;
-                return releaseInfo;
-            }
-
-            if (latestResponse.StatusCode != HttpStatusCode.NotFound)
-            {
-                var failure = new GitHubReleaseInfo(repository, null, null, null, repository, "GitHub", $"GitHub API returned {(int)latestResponse.StatusCode}");
-                GitHubCache[repository] = failure;
-                return failure;
-            }
-
-            using var repoResponse = await GitHubClient.GetAsync($"repos/{repoPath}", cancellationToken);
-            if (repoResponse.IsSuccessStatusCode)
-            {
-                using var repoJson = JsonDocument.Parse(await repoResponse.Content.ReadAsStringAsync(cancellationToken));
-                var root = repoJson.RootElement;
-                var repoInfo = new GitHubReleaseInfo(
-                    repository,
-                    null,
-                    null,
-                    TryReadDate(root, "pushed_at") ?? TryReadDate(root, "updated_at"),
-                    root.TryGetProperty("html_url", out var htmlUrl) ? htmlUrl.GetString() : repository,
-                    "GitHub repository activity",
-                    null);
-
-                GitHubCache[repository] = repoInfo;
-                return repoInfo;
-            }
-
-            var repoFailure = new GitHubReleaseInfo(repository, null, null, null, repository, "GitHub", $"GitHub API returned {(int)repoResponse.StatusCode}");
-            GitHubCache[repository] = repoFailure;
-            return repoFailure;
-        }
-        catch (Exception ex)
-        {
-            var failure = new GitHubReleaseInfo(repository, null, null, null, repository, "GitHub", ex.Message);
-            GitHubCache[repository] = failure;
-            return failure;
-        }
-    }
-
     public bool IsAdministrator()
     {
         using var identity = WindowsIdentity.GetCurrent();
@@ -410,55 +318,6 @@ Set-Content -Path '{{exitCodePath.Replace("'", "''")}}' -Value $LASTEXITCODE -En
         {
             throw new InvalidOperationException($"{operation} failed:{Environment.NewLine}{result.CombinedOutput}");
         }
-    }
-
-    private static HttpClient CreateGitHubClient()
-    {
-        var client = new HttpClient
-        {
-            BaseAddress = new Uri("https://api.github.com/"),
-            Timeout = TimeSpan.FromSeconds(15),
-        };
-        client.DefaultRequestHeaders.UserAgent.Clear();
-        client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("vsrepo_Gui", "0.1"));
-        client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
-        return client;
-    }
-
-    private static string? NormalizeGitHubRepositoryUrl(string? url)
-    {
-        if (string.IsNullOrWhiteSpace(url))
-        {
-            return null;
-        }
-
-        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
-        {
-            return null;
-        }
-
-        if (!uri.Host.Equals("github.com", StringComparison.OrdinalIgnoreCase))
-        {
-            return null;
-        }
-
-        var segments = uri.AbsolutePath.Trim('/').Split('/', StringSplitOptions.RemoveEmptyEntries);
-        if (segments.Length < 2)
-        {
-            return null;
-        }
-
-        return $"https://github.com/{segments[0]}/{segments[1]}";
-    }
-
-    private static DateTimeOffset? TryReadDate(JsonElement root, string propertyName)
-    {
-        if (root.TryGetProperty(propertyName, out var property) && property.ValueKind == JsonValueKind.String && DateTimeOffset.TryParse(property.GetString(), out var value))
-        {
-            return value;
-        }
-
-        return null;
     }
 
     private static List<string> BuildVsrepoArguments(string target, string operation, IEnumerable<string>? packages, bool force)
@@ -521,5 +380,6 @@ Set-Content -Path '{{exitCodePath.Replace("'", "''")}}' -Value $LASTEXITCODE -En
         return new CommandResult(process.ExitCode, stdOut, stdErr);
     }
 }
+
 
 

@@ -1,19 +1,17 @@
 using System.Windows;
-using vsrepo_Gui.Services;
+using VSRepo_Gui.Services;
 
-namespace vsrepo_Gui;
+namespace VSRepo_Gui;
 
 public partial class App : Application
 {
     public App()
     {
-        AppLog.Write("App constructor");
-
         DispatcherUnhandledException += (_, e) =>
         {
             AppLog.Write(e.Exception, "DispatcherUnhandledException");
             e.Handled = true;
-            MessageBox.Show(e.Exception.ToString(), "vsrepo_Gui", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(e.Exception.Message, "VSRepo_Gui", MessageBoxButton.OK, MessageBoxImage.Error);
             Shutdown(-1);
         };
 
@@ -37,3 +35,4 @@ public partial class App : Application
     }
 
 }
+
