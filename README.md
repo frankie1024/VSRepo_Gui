@@ -1,9 +1,8 @@
 # VSRepo_Gui
 
-`VSRepo_Gui` is a Windows desktop GUI for `VSRepo`.
+`VSRepo_Gui` is a Windows desktop application for browsing, installing, upgrading, and removing VapourSynth plugins through `VSRepo`.
 
-
-It focuses on the common VapourSynth workflow:
+It is designed to make the day-to-day plugin workflow easier from one place:
 
 - browse plugins
 - install / uninstall / upgrade packages
@@ -25,6 +24,7 @@ It focuses on the common VapourSynth workflow:
 ## Build And Publish
 
 - Development build: `dotnet build`
-- Release publish: `dotnet publish`
+- Release package: `python .\tools\package_release.py`
 - Published output: `dist/`
+- GitHub release asset: upload the generated zip package only, not a standalone exe
 
