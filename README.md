@@ -2,7 +2,7 @@
 
 `VSRepo_Gui` is a Windows desktop GUI for `python -m vsrepo.vsrepo`.
 
-Current release: `v1.0.0`
+Current release: `v1.0.2`
 
 It focuses on the common VapourSynth workflow:
 

@@ -7,6 +7,7 @@
                  xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
                  mc:Ignorable="d"
                  Title="VSRepo_Gui"
+                 Icon="Assets/AppIcon.ico"
                  Width="1560"
                  Height="980"
                  MinWidth="1280"
