@@ -21,10 +21,3 @@ It is designed to make the day-to-day plugin workflow easier from one place:
 
 - Elevated operations are supported when VSRepo needs to write into protected directories such as `Program Files`.
 
-## Build And Publish
-
-- Development build: `dotnet build`
-- Release package: `python .\tools\package_release.py`
-- Published output: `dist/`
-- GitHub release asset: upload the generated zip package only, not a standalone exe
-
