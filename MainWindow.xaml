@@ -13,6 +13,7 @@
                  MinWidth="1280"
                  MinHeight="820"
                  WindowStartupLocation="CenterScreen"
+                 WindowBackdropType="Mica"
                  ExtendsContentIntoTitleBar="True">
     <Grid>
         <Grid.RowDefinitions>
@@ -123,7 +124,7 @@
                                     <TextBlock Text="Update Definitions" />
                                 </StackPanel>
                             </ui:Button>
-                            <ui:Button x:Name="UpgradeAllButton" Appearance="Primary" Click="UpgradeAllButton_Click">
+                            <ui:Button x:Name="UpgradeAllButton" Appearance="Secondary" Click="UpgradeAllButton_Click">
                                 <StackPanel Orientation="Horizontal">
                                     <ui:SymbolIcon Symbol="ArrowUp24" Margin="0,0,8,0" />
                                     <TextBlock Text="Upgrade All" />
@@ -159,6 +160,7 @@
                                     <ComboBox x:Name="TargetComboBox"
                                               Style="{StaticResource FluentComboBoxStyle}"
                                               ItemContainerStyle="{StaticResource FluentComboBoxItemStyle}"
+                                              PreviewMouseLeftButtonDown="FilterComboBox_PreviewMouseLeftButtonDown"
                                               SelectionChanged="TargetComboBox_SelectionChanged" />
                                 </StackPanel>
 
@@ -167,6 +169,7 @@
                                     <ComboBox x:Name="StatusFilterComboBox"
                                               Style="{StaticResource FluentComboBoxStyle}"
                                               ItemContainerStyle="{StaticResource FluentComboBoxItemStyle}"
+                                              PreviewMouseLeftButtonDown="FilterComboBox_PreviewMouseLeftButtonDown"
                                               SelectionChanged="FilterChanged" />
                                 </StackPanel>
 
@@ -175,6 +178,7 @@
                                     <ComboBox x:Name="CategoryFilterComboBox"
                                               Style="{StaticResource FluentComboBoxStyle}"
                                               ItemContainerStyle="{StaticResource FluentComboBoxItemStyle}"
+                                              PreviewMouseLeftButtonDown="FilterComboBox_PreviewMouseLeftButtonDown"
                                               SelectionChanged="FilterChanged" />
                                 </StackPanel>
 
@@ -269,7 +273,7 @@
                                                             </Style.Triggers>
                                                         </Style>
                                                     </Border.Style>
-                                                    <TextBlock Text="{Binding StateText}" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                                                    <TextBlock Text="{Binding StateText}" Style="{StaticResource StatusBadgeTextStyle}" />
                                                 </Border>
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
@@ -326,6 +330,7 @@
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
@@ -335,21 +340,63 @@
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
 
-                            <TextBlock Grid.Row="0" Grid.Column="0" Margin="0,8,12,0" Text="Python" />
+                            <TextBlock Grid.Row="0" Grid.Column="0" Margin="0,8,12,0" Text="Theme" />
+                            <Border Grid.Row="0"
+                                    Grid.Column="1"
+                                    Grid.ColumnSpan="4"
+                                    Padding="4"
+                                    HorizontalAlignment="Left"
+                                    Background="{DynamicResource ControlFillColorTertiaryBrush}"
+                                    CornerRadius="14">
+                                <UniformGrid Columns="3">
+                                    <RadioButton x:Name="LightThemeRadioButton"
+                                                 Tag="Light"
+                                                 GroupName="ThemeModeGroup"
+                                                 Style="{StaticResource ThemeModeOptionStyle}"
+                                                 Checked="ThemeModeRadioButton_Checked">
+                                        <StackPanel Orientation="Horizontal">
+                                            <ui:SymbolIcon Symbol="WeatherSunny24" Margin="0,0,8,0" />
+                                            <TextBlock Text="Light" />
+                                        </StackPanel>
+                                    </RadioButton>
+                                    <RadioButton x:Name="DarkThemeRadioButton"
+                                                 Tag="Dark"
+                                                 GroupName="ThemeModeGroup"
+                                                 Style="{StaticResource ThemeModeOptionStyle}"
+                                                 Checked="ThemeModeRadioButton_Checked">
+                                        <StackPanel Orientation="Horizontal">
+                                            <ui:SymbolIcon Symbol="WeatherMoon24" Margin="0,0,8,0" />
+                                            <TextBlock Text="Dark" />
+                                        </StackPanel>
+                                    </RadioButton>
+                                    <RadioButton x:Name="SystemThemeRadioButton"
+                                                 Tag="System"
+                                                 GroupName="ThemeModeGroup"
+                                                 Style="{StaticResource ThemeModeOptionStyle}"
+                                                 Checked="ThemeModeRadioButton_Checked">
+                                        <StackPanel Orientation="Horizontal">
+                                            <ui:SymbolIcon Symbol="Desktop24" Margin="0,0,8,0" />
+                                            <TextBlock Text="System" />
+                                        </StackPanel>
+                                    </RadioButton>
+                                </UniformGrid>
+                            </Border>
+
+                            <TextBlock Grid.Row="1" Grid.Column="0" Margin="0,20,12,0" Text="Python" />
                             <ui:TextBox x:Name="PythonPathTextBox"
-                                        Grid.Row="0"
+                                        Grid.Row="1"
                                         Grid.Column="1"
-                                        Margin="0,0,12,0"
+                                        Margin="0,12,12,0"
                                         Style="{StaticResource FluentTextBoxStyle}"
                                         PlaceholderText="Select python.exe" />
-                            <ui:Button x:Name="BrowsePythonButton" Grid.Row="0" Grid.Column="2" Margin="0,0,8,0" Appearance="Secondary" Click="BrowsePythonButton_Click"><TextBlock Text="Browse" /></ui:Button>
-                            <ui:Button x:Name="DetectPythonButton" Grid.Row="0" Grid.Column="3" Margin="0,0,8,0" Appearance="Secondary" Click="DetectPythonButton_Click"><TextBlock Text="Auto Detect" /></ui:Button>
-                            <ui:Button x:Name="ProbeButton" Grid.Row="0" Grid.Column="4" Appearance="Primary" Click="ProbeButton_Click"><TextBlock Text="Probe" /></ui:Button>
+                            <ui:Button x:Name="BrowsePythonButton" Grid.Row="1" Grid.Column="2" Margin="0,12,8,0" Appearance="Secondary" Click="BrowsePythonButton_Click"><TextBlock Text="Browse" /></ui:Button>
+                            <ui:Button x:Name="DetectPythonButton" Grid.Row="1" Grid.Column="3" Margin="0,12,8,0" Appearance="Secondary" Click="DetectPythonButton_Click"><TextBlock Text="Auto Detect" /></ui:Button>
+                            <ui:Button x:Name="ProbeButton" Grid.Row="1" Grid.Column="4" Margin="0,12,0,0" Appearance="Primary" Click="ProbeButton_Click"><TextBlock Text="Probe" /></ui:Button>
 
-                            <TextBlock Grid.Row="1" Grid.Column="0" Margin="0,22,12,0" Text="Status" />
-                            <TextBlock x:Name="StatusTextBlock" Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="4" Margin="0,22,0,0" TextWrapping="Wrap" />
+                            <TextBlock Grid.Row="2" Grid.Column="0" Margin="0,22,12,0" Text="Status" />
+                            <TextBlock x:Name="StatusTextBlock" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="4" Margin="0,22,0,0" TextWrapping="Wrap" />
 
-                            <WrapPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="5" Margin="0,20,0,0" ItemHeight="38">
+                            <WrapPanel Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="5" Margin="0,20,0,0" ItemHeight="38">
                                 <TextBlock Margin="0,8,10,0" Text="Definitions" />
                                 <ui:TextBox x:Name="DefinitionsPathTextBox" Width="360" Margin="0,0,8,0" Style="{StaticResource FluentReadOnlyTextBoxStyle}" />
                                 <ui:Button Appearance="Secondary" Margin="0,0,18,0" Click="OpenDefinitionsButton_Click"><TextBlock Text="Open" /></ui:Button>

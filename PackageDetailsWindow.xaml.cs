@@ -1,11 +1,9 @@
 using System.Diagnostics;
 using System.Windows;
 using VSRepo_Gui.Models;
-using Wpf.Ui.Appearance;
 using Wpf.Ui.Controls;
 using WpfButton = Wpf.Ui.Controls.Button;
 using WpfFluentWindow = Wpf.Ui.Controls.FluentWindow;
-using WpfWindowBackdropType = Wpf.Ui.Controls.WindowBackdropType;
 
 namespace VSRepo_Gui;
 
@@ -18,7 +16,7 @@ public partial class PackageDetailsWindow : WpfFluentWindow
     {
         _package = package;
         InitializeComponent();
-        SystemThemeWatcher.Watch(this, WpfWindowBackdropType.Mica, true);
+        (Application.Current as App)?.ApplyThemeToWindow(this);
         LoadPackage();
     }
 

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.IO;
+using System.Text.Json.Serialization;
 
 namespace VSRepo_Gui.Services;
 
@@ -7,10 +8,15 @@ public sealed class AppStateService
 {
     private static readonly string StateDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "VSRepo_Gui");
     private static readonly string StatePath = Path.Combine(StateDirectory, "state.json");
-    private static readonly JsonSerializerOptions SaveOptions = new() { WriteIndented = true };
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        WriteIndented = true,
+        Converters = { new JsonStringEnumConverter() }
+    };
 
     public sealed class AppState
     {
+        public AppThemeMode ThemeMode { get; set; } = AppThemeMode.System;
         public string PythonPath { get; set; } = string.Empty;
         public string Target { get; set; } = "win64";
         public string StatusFilter { get; set; } = "All";
@@ -34,7 +40,7 @@ public sealed class AppStateService
             }
 
             var json = File.ReadAllText(StatePath);
-            return JsonSerializer.Deserialize<AppState>(json) ?? new AppState();
+            return JsonSerializer.Deserialize<AppState>(json, JsonOptions) ?? new AppState();
         }
         catch
         {
@@ -47,7 +53,7 @@ public sealed class AppStateService
         try
         {
             Directory.CreateDirectory(StateDirectory);
-            var json = JsonSerializer.Serialize(state, SaveOptions);
+            var json = JsonSerializer.Serialize(state, JsonOptions);
             File.WriteAllText(StatePath, json);
         }
         catch

@@ -5,6 +5,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using VSRepo_Gui.Models;
@@ -14,7 +15,6 @@ using WpfButton = Wpf.Ui.Controls.Button;
 using WpfControlAppearance = Wpf.Ui.Controls.ControlAppearance;
 using WpfFluentWindow = Wpf.Ui.Controls.FluentWindow;
 using WpfSymbolRegular = Wpf.Ui.Controls.SymbolRegular;
-using WpfWindowBackdropType = Wpf.Ui.Controls.WindowBackdropType;
 
 namespace VSRepo_Gui;
 
@@ -42,13 +42,15 @@ public partial class MainWindow : WpfFluentWindow
     private PackageItem? _selectedPackage;
     private bool _isBusy;
     private bool _isNavigationExpanded;
+    private bool _isUpdatingThemeSelection;
 
     private sealed record PackageCommand(string Operation, bool Force);
 
     public MainWindow()
     {
         InitializeComponent();
-        SystemThemeWatcher.Watch(this, WpfWindowBackdropType.Mica, true);
+        (Application.Current as App)?.ApplyThemeToWindow(this);
+        ApplicationThemeManager.Changed += ApplicationThemeManager_Changed;
 
         PackagesGrid.ItemsSource = _visiblePackages;
         TargetComboBox.ItemsSource = SupportedTargets;
@@ -61,6 +63,7 @@ public partial class MainWindow : WpfFluentWindow
         SetCurrentView("plugins");
         SidebarHost.Width = NavigationPaneCollapsedWidth;
         UpdateNavigationPaneLayout();
+        ApplyThemeSensitiveStyles();
         _searchDebounceTimer.Tick += SearchDebounceTimer_Tick;
 
         Loaded += MainWindow_Loaded;
@@ -90,15 +93,78 @@ public partial class MainWindow : WpfFluentWindow
         SaveAppState();
         try
         {
-            if (IsLoaded)
-            {
-                SystemThemeWatcher.UnWatch(this);
-            }
+            ApplicationThemeManager.Changed -= ApplicationThemeManager_Changed;
         }
-        catch
+        finally
         {
+            _shutdown.Cancel();
         }
-        _shutdown.Cancel();
+    }
+
+    private void ApplicationThemeManager_Changed(ApplicationTheme currentApplicationTheme, Color systemAccent)
+    {
+        Dispatcher.InvokeAsync(ApplyThemeSensitiveStyles);
+    }
+
+    private void ApplyThemeSensitiveStyles()
+    {
+        var isDarkTheme = (Application.Current as App)?.GetEffectiveTheme() == ApplicationTheme.Dark
+                          || ApplicationThemeManager.GetAppTheme() == ApplicationTheme.Dark;
+
+        var comboStyle = (Style)FindResource(isDarkTheme ? "FluentDarkComboBoxStyle" : "FluentComboBoxStyle");
+        var comboItemStyle = (Style)FindResource(isDarkTheme ? "FluentDarkComboBoxItemStyle" : "FluentComboBoxItemStyle");
+        var textBoxStyle = (Style)FindResource(isDarkTheme ? "FluentDarkTextBoxStyle" : "FluentTextBoxStyle");
+        var readOnlyTextBoxStyle = (Style)FindResource(isDarkTheme ? "FluentDarkReadOnlyTextBoxStyle" : "FluentReadOnlyTextBoxStyle");
+
+        foreach (var comboBox in new[] { TargetComboBox, StatusFilterComboBox, CategoryFilterComboBox })
+        {
+            comboBox.Style = comboStyle;
+            comboBox.ItemContainerStyle = comboItemStyle;
+        }
+
+        foreach (var textBox in new[] { SearchTextBox, PythonPathTextBox })
+        {
+            textBox.Style = textBoxStyle;
+        }
+
+        foreach (var textBox in new[] { DefinitionsPathTextBox, BinariesPathTextBox, ScriptsPathTextBox })
+        {
+            textBox.Style = readOnlyTextBoxStyle;
+        }
+    }
+
+    private void ThemeModeRadioButton_Checked(object sender, RoutedEventArgs e)
+    {
+        if (_isUpdatingThemeSelection || sender is not RadioButton radioButton || radioButton.Tag is not string rawMode)
+        {
+            return;
+        }
+
+        if (!Enum.TryParse<AppThemeMode>(rawMode, true, out var themeMode))
+        {
+            return;
+        }
+
+        _appState.ThemeMode = themeMode;
+        (Application.Current as App)?.SetThemeMode(themeMode);
+        ApplyThemeSensitiveStyles();
+
+        if (IsLoaded)
+        {
+            SaveAppState();
+        }
+    }
+
+    private void FilterComboBox_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not ComboBox comboBox || comboBox.IsDropDownOpen)
+        {
+            return;
+        }
+
+        comboBox.Focus();
+        comboBox.IsDropDownOpen = true;
+        e.Handled = true;
     }
 
     private async Task AutoDetectPythonAsync()
@@ -334,11 +400,52 @@ public partial class MainWindow : WpfFluentWindow
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            filtered = filtered.Where(x =>
-                x.Name.Contains(search, StringComparison.OrdinalIgnoreCase) ||
-                x.NamespaceOrModule.Contains(search, StringComparison.OrdinalIgnoreCase) ||
-                x.Identifier.Contains(search, StringComparison.OrdinalIgnoreCase) ||
-                x.Description.Contains(search, StringComparison.OrdinalIgnoreCase));
+            // Weighted search: name (5), namespace/module (3), category (2)
+            var tokens = search.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+
+            var scored = filtered
+                .Select(x =>
+                {
+                    var score = 0;
+                    foreach (var tok in tokens)
+                    {
+                        if (!string.IsNullOrWhiteSpace(x.Name) && x.Name.StartsWith(tok, StringComparison.OrdinalIgnoreCase))
+                        {
+                            score += 8;
+                        }
+                        else if (!string.IsNullOrWhiteSpace(x.Name) && x.Name.IndexOf(tok, StringComparison.OrdinalIgnoreCase) >= 0)
+                        {
+                            score += 5;
+                        }
+
+                        if (!string.IsNullOrWhiteSpace(x.NamespaceOrModule) && x.NamespaceOrModule.StartsWith(tok, StringComparison.OrdinalIgnoreCase))
+                        {
+                            score += 5;
+                        }
+                        else if (!string.IsNullOrWhiteSpace(x.NamespaceOrModule) && x.NamespaceOrModule.IndexOf(tok, StringComparison.OrdinalIgnoreCase) >= 0)
+                        {
+                            score += 3;
+                        }
+
+                        if (!string.IsNullOrWhiteSpace(x.Category) && x.Category.StartsWith(tok, StringComparison.OrdinalIgnoreCase))
+                        {
+                            score += 3;
+                        }
+                        else if (!string.IsNullOrWhiteSpace(x.Category) && x.Category.IndexOf(tok, StringComparison.OrdinalIgnoreCase) >= 0)
+                        {
+                            score += 2;
+                        }
+                    }
+
+                    return new { Item = x, Score = score };
+                })
+                .Where(s => s.Score > 0)
+                .OrderByDescending(s => s.Score)
+                .ThenBy(s => s.Item.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(s => s.Item)
+                .ToList();
+
+            filtered = scored;
         }
 
         _visiblePackages.Clear();
@@ -369,6 +476,7 @@ public partial class MainWindow : WpfFluentWindow
     private void RestoreAppState()
     {
         _appState = _appStateService.Load();
+        ApplyThemeSelection();
 
         if (!string.IsNullOrWhiteSpace(_appState.PythonPath))
         {
@@ -415,6 +523,7 @@ public partial class MainWindow : WpfFluentWindow
 
     private void SaveAppState()
     {
+        _appState.ThemeMode = GetSelectedThemeMode();
         _appState.PythonPath = PythonPathTextBox.Text.Trim();
         _appState.Target = GetSelectedTarget();
         _appState.StatusFilter = (StatusFilterComboBox.SelectedItem as string) ?? "All";
@@ -431,6 +540,36 @@ public partial class MainWindow : WpfFluentWindow
         }
 
         _appStateService.Save(_appState);
+    }
+
+    private void ApplyThemeSelection()
+    {
+        _isUpdatingThemeSelection = true;
+        try
+        {
+            LightThemeRadioButton.IsChecked = _appState.ThemeMode == AppThemeMode.Light;
+            DarkThemeRadioButton.IsChecked = _appState.ThemeMode == AppThemeMode.Dark;
+            SystemThemeRadioButton.IsChecked = _appState.ThemeMode == AppThemeMode.System;
+        }
+        finally
+        {
+            _isUpdatingThemeSelection = false;
+        }
+    }
+
+    private AppThemeMode GetSelectedThemeMode()
+    {
+        if (LightThemeRadioButton.IsChecked == true)
+        {
+            return AppThemeMode.Light;
+        }
+
+        if (DarkThemeRadioButton.IsChecked == true)
+        {
+            return AppThemeMode.Dark;
+        }
+
+        return AppThemeMode.System;
     }
 
     private void UpdateCounters()

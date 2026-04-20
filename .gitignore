@@ -1,6 +1,9 @@
 bin/
 obj/
 dist/
+dist_*/
+test/
+tools/
 
 *.user
 *.suo
@@ -14,4 +17,7 @@ TestResults/
 *.log
 
 VSRepo_Gui-v*.zip
+NuGet.config
+Assets/AppIcon.png
+Assets/AppIcon.svg
 

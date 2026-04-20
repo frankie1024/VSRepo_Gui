@@ -12,6 +12,7 @@
                  MinWidth="680"
                  MinHeight="560"
                  WindowStartupLocation="CenterOwner"
+                 WindowBackdropType="Mica"
                  ExtendsContentIntoTitleBar="True">
     <Grid Margin="0,4,0,0">
         <Grid.RowDefinitions>
