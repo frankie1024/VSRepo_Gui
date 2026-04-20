@@ -1,15 +1,15 @@
 # VSRepo_Gui
 
-`VSRepo_Gui` is a Windows desktop application for browsing, installing, upgrading, and removing VapourSynth plugins through `VSRepo`.
+`VSRepo_Gui` is a Windows desktop application for managing VapourSynth plugins through `VSRepo`.
 
-It is designed to make the day-to-day plugin workflow easier from one place:
+## Features
 
-- browse plugins
-- install / uninstall / upgrade packages
-- upgrade all packages
-- inspect package details and dependencies
-- filter by status / category / search
-- view VSRepo paths and environment settings in a dedicated Settings page
+- Browse available packages
+- Install, uninstall, and upgrade packages
+- Upgrade all installed packages
+- View package details and dependencies
+- Filter packages by status, category, and search text
+- Inspect VSRepo definitions, binaries, and scripts paths
 
 ## Tech Stack
 
@@ -17,7 +17,9 @@ It is designed to make the day-to-day plugin workflow easier from one place:
 - `WPF`
 - `WPF-UI`
 
-## Notes
+## Build
 
-- Elevated operations are supported when VSRepo needs to write into protected directories such as `Program Files`.
+- Development build: `dotnet build`
+- Release package: `python .\tools\package_release.py`
+- Published output: `dist/`
 
