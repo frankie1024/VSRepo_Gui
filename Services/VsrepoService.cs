@@ -39,13 +39,7 @@ public sealed class VsrepoService
         var candidates = new List<string>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var probe in new[]
-        {
-            @"C:\Program Files\Python312\python.exe",
-            @"C:\Program Files\Python313\python.exe",
-            @"C:\Users\Luoye\AppData\Local\Programs\Python\Python312\python.exe",
-            @"C:\Users\Luoye\AppData\Local\Programs\Python\Python313\python.exe",
-        })
+        foreach (var probe in EnumerateCommonPythonCandidates())
         {
             if (File.Exists(probe) && seen.Add(probe))
             {
@@ -68,6 +62,42 @@ public sealed class VsrepoService
         }
 
         return candidates;
+    }
+
+    private static IEnumerable<string> EnumerateCommonPythonCandidates()
+    {
+        var roots = new[]
+        {
+            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "Python"),
+        }
+        .Where(static path => !string.IsNullOrWhiteSpace(path))
+        .Distinct(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var root in roots)
+        {
+            IEnumerable<string> directories;
+            try
+            {
+                if (!Directory.Exists(root))
+                {
+                    continue;
+                }
+
+                directories = Directory.EnumerateDirectories(root, "Python*", SearchOption.TopDirectoryOnly)
+                    .OrderByDescending(static path => path, StringComparer.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                continue;
+            }
+
+            foreach (var directory in directories)
+            {
+                yield return Path.Combine(directory, "python.exe");
+            }
+        }
     }
 
     public async Task<ProbeResult> ProbeAsync(string pythonExe, CancellationToken cancellationToken = default)
