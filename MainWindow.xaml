@@ -140,10 +140,46 @@
                         </Grid.RowDefinitions>
 
                         <UniformGrid Grid.Row="0" Columns="4" Margin="0,0,0,16">
-                            <ui:Card Margin="0,0,10,0" Padding="16"><StackPanel><TextBlock Foreground="{StaticResource StatUpdatesBrush}" Text="Updates" /><TextBlock x:Name="UpdatesCountTextBlock" Margin="0,6,0,0" FontSize="26" FontWeight="SemiBold" Text="0" /></StackPanel></ui:Card>
-                            <ui:Card Margin="10,0,10,0" Padding="16"><StackPanel><TextBlock Foreground="{StaticResource StatInstalledBrush}" Text="Installed" /><TextBlock x:Name="InstalledCountTextBlock" Margin="0,6,0,0" FontSize="26" FontWeight="SemiBold" Text="0" /></StackPanel></ui:Card>
-                            <ui:Card Margin="10,0,10,0" Padding="16"><StackPanel><TextBlock Foreground="{StaticResource StatPendingBrush}" Text="Not Installed" /><TextBlock x:Name="NotInstalledCountTextBlock" Margin="0,6,0,0" FontSize="26" FontWeight="SemiBold" Text="0" /></StackPanel></ui:Card>
-                            <ui:Card Margin="10,0,0,0" Padding="16"><StackPanel><TextBlock Foreground="{StaticResource StatUnknownBrush}" Text="Unknown" /><TextBlock x:Name="UnknownCountTextBlock" Margin="0,6,0,0" FontSize="26" FontWeight="SemiBold" Text="0" /></StackPanel></ui:Card>
+                            <Button x:Name="UpdatesSummaryButton"
+                                    Margin="0,0,10,0"
+                                    Tag="Updates"
+                                    Style="{StaticResource StatusSummaryButtonStyle}"
+                                    Click="StatusSummaryButton_Click">
+                                <StackPanel>
+                                    <TextBlock Foreground="{StaticResource StatUpdatesBrush}" Text="Updates" />
+                                    <TextBlock x:Name="UpdatesCountTextBlock" Margin="0,6,0,0" FontSize="26" FontWeight="SemiBold" Text="0" />
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="InstalledSummaryButton"
+                                    Margin="10,0,10,0"
+                                    Tag="Installed"
+                                    Style="{StaticResource StatusSummaryButtonStyle}"
+                                    Click="StatusSummaryButton_Click">
+                                <StackPanel>
+                                    <TextBlock Foreground="{StaticResource StatInstalledBrush}" Text="Installed" />
+                                    <TextBlock x:Name="InstalledCountTextBlock" Margin="0,6,0,0" FontSize="26" FontWeight="SemiBold" Text="0" />
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="NotInstalledSummaryButton"
+                                    Margin="10,0,10,0"
+                                    Tag="Not Installed"
+                                    Style="{StaticResource StatusSummaryButtonStyle}"
+                                    Click="StatusSummaryButton_Click">
+                                <StackPanel>
+                                    <TextBlock Foreground="{StaticResource StatPendingBrush}" Text="Not Installed" />
+                                    <TextBlock x:Name="NotInstalledCountTextBlock" Margin="0,6,0,0" FontSize="26" FontWeight="SemiBold" Text="0" />
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="UnknownSummaryButton"
+                                    Margin="10,0,0,0"
+                                    Tag="Unknown Version"
+                                    Style="{StaticResource StatusSummaryButtonStyle}"
+                                    Click="StatusSummaryButton_Click">
+                                <StackPanel>
+                                    <TextBlock Foreground="{StaticResource StatUnknownBrush}" Text="Unknown" />
+                                    <TextBlock x:Name="UnknownCountTextBlock" Margin="0,6,0,0" FontSize="26" FontWeight="SemiBold" Text="0" />
+                                </StackPanel>
+                            </Button>
                         </UniformGrid>
 
                         <ui:Card Grid.Row="1" Padding="18">

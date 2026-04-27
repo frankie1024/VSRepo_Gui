@@ -23,9 +23,14 @@ public partial class MainWindow : WpfFluentWindow
     private const double NavigationPaneCollapsedWidth = 72;
     private const double NavigationPaneExpandedWidth = 184;
     private const string AllCategoriesLabel = "All Categories";
+    private const string StatusAllLabel = "All";
+    private const string StatusUpdatesLabel = "Updates";
+    private const string StatusInstalledLabel = "Installed";
+    private const string StatusNotInstalledLabel = "Not Installed";
+    private const string StatusUnknownLabel = "Unknown Version";
 
     private static readonly string[] SupportedTargets = ["win64", "win32"];
-    private static readonly string[] StatusFilterOptions = ["All", "Updates", "Installed", "Not Installed", "Unknown Version"];
+    private static readonly string[] StatusFilterOptions = [StatusAllLabel, StatusUpdatesLabel, StatusInstalledLabel, StatusNotInstalledLabel, StatusUnknownLabel];
 
     private readonly VsrepoService _service = new();
     private readonly AppStateService _appStateService = new();
@@ -59,6 +64,7 @@ public partial class MainWindow : WpfFluentWindow
         StatusFilterComboBox.SelectedIndex = 0;
         CategoryFilterComboBox.ItemsSource = new[] { AllCategoriesLabel };
         CategoryFilterComboBox.SelectedIndex = 0;
+        UpdateStatusSummarySelection();
         PluginsNavButton.Appearance = WpfControlAppearance.Secondary;
         SetCurrentView("plugins");
         SidebarHost.Width = NavigationPaneCollapsedWidth;
@@ -380,16 +386,16 @@ public partial class MainWindow : WpfFluentWindow
     private void ApplyFilters(string? preserveIdentifier = null)
     {
         var search = SearchTextBox.Text.Trim();
-        var statusFilter = (StatusFilterComboBox.SelectedItem as string) ?? "All";
+        var statusFilter = (StatusFilterComboBox.SelectedItem as string) ?? StatusAllLabel;
         var categoryFilter = (CategoryFilterComboBox.SelectedItem as string) ?? AllCategoriesLabel;
 
         IEnumerable<PackageItem> filtered = _allPackages;
         filtered = statusFilter switch
         {
-            "Updates" => filtered.Where(static x => x.State == PackageInstallState.UpdateAvailable),
-            "Installed" => filtered.Where(static x => x.State == PackageInstallState.Installed),
-            "Not Installed" => filtered.Where(static x => x.State == PackageInstallState.NotInstalled),
-            "Unknown Version" => filtered.Where(static x => x.State == PackageInstallState.InstalledUnknown),
+            StatusUpdatesLabel => filtered.Where(static x => x.State == PackageInstallState.UpdateAvailable),
+            StatusInstalledLabel => filtered.Where(static x => x.State == PackageInstallState.Installed),
+            StatusNotInstalledLabel => filtered.Where(static x => x.State == PackageInstallState.NotInstalled),
+            StatusUnknownLabel => filtered.Where(static x => x.State == PackageInstallState.InstalledUnknown),
             _ => filtered,
         };
 
@@ -493,6 +499,8 @@ public partial class MainWindow : WpfFluentWindow
             StatusFilterComboBox.SelectedItem = _appState.StatusFilter;
         }
 
+        UpdateStatusSummarySelection();
+
         SearchTextBox.Text = _appState.SearchText ?? string.Empty;
 
         if (_appState.Width > 0)
@@ -526,7 +534,7 @@ public partial class MainWindow : WpfFluentWindow
         _appState.ThemeMode = GetSelectedThemeMode();
         _appState.PythonPath = PythonPathTextBox.Text.Trim();
         _appState.Target = GetSelectedTarget();
-        _appState.StatusFilter = (StatusFilterComboBox.SelectedItem as string) ?? "All";
+        _appState.StatusFilter = (StatusFilterComboBox.SelectedItem as string) ?? StatusAllLabel;
         _appState.CategoryFilter = (CategoryFilterComboBox.SelectedItem as string) ?? AllCategoriesLabel;
         _appState.SearchText = SearchTextBox.Text;
         _appState.SelectedIdentifier = (PackagesGrid.SelectedItem as PackageItem)?.Identifier ?? string.Empty;
@@ -889,11 +897,25 @@ public partial class MainWindow : WpfFluentWindow
 
     private void FilterChanged(object sender, SelectionChangedEventArgs e)
     {
+        UpdateStatusSummarySelection();
         if (IsLoaded)
         {
             ApplyFilters(_selectedPackage?.Identifier);
             SaveAppState();
         }
+    }
+
+    private void StatusSummaryButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button button || button.Tag is not string filter)
+        {
+            return;
+        }
+
+        var currentFilter = (StatusFilterComboBox.SelectedItem as string) ?? StatusAllLabel;
+        StatusFilterComboBox.SelectedItem = string.Equals(currentFilter, filter, StringComparison.OrdinalIgnoreCase)
+            ? StatusAllLabel
+            : filter;
     }
 
     private async void TargetComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -1016,6 +1038,23 @@ public partial class MainWindow : WpfFluentWindow
         SettingsNavButton.Appearance = showSettings ? WpfControlAppearance.Secondary : WpfControlAppearance.Transparent;
         PluginsView.Visibility = showSettings ? Visibility.Collapsed : Visibility.Visible;
         SettingsView.Visibility = showSettings ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void UpdateStatusSummarySelection()
+    {
+        var statusFilter = (StatusFilterComboBox.SelectedItem as string) ?? StatusAllLabel;
+
+        ApplyStatusSummaryState(UpdatesSummaryButton, statusFilter == StatusUpdatesLabel);
+        ApplyStatusSummaryState(InstalledSummaryButton, statusFilter == StatusInstalledLabel);
+        ApplyStatusSummaryState(NotInstalledSummaryButton, statusFilter == StatusNotInstalledLabel);
+        ApplyStatusSummaryState(UnknownSummaryButton, statusFilter == StatusUnknownLabel);
+    }
+
+    private static void ApplyStatusSummaryState(Button button, bool isActive)
+    {
+        button.SetResourceReference(Control.BackgroundProperty, isActive ? "ControlFillColorSecondaryBrush" : "ControlFillColorDefaultBrush");
+        button.SetResourceReference(Control.BorderBrushProperty, isActive ? "TextFillColorPrimaryBrush" : "ControlStrokeColorDefaultBrush");
+        button.BorderThickness = isActive ? new Thickness(2) : new Thickness(1);
     }
 
     private void PluginsNavButton_Click(object sender, RoutedEventArgs e)
