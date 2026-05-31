@@ -161,7 +161,6 @@ public sealed class VsrepoService
         Directory.CreateDirectory(workDir);
 
         var token = Guid.NewGuid().ToString("N");
-        var scriptPath = Path.Combine(workDir, $"run_{token}.ps1");
         var outputPath = Path.Combine(workDir, $"out_{token}.log");
         var exitCodePath = Path.Combine(workDir, $"code_{token}.txt");
 
@@ -175,7 +174,9 @@ $arguments = @({{escapedArgs}})
 & $python @arguments *>'{{outputPath.Replace("'", "''")}}'
 Set-Content -Path '{{exitCodePath.Replace("'", "''")}}' -Value $LASTEXITCODE -Encoding UTF8
 """;
-            await File.WriteAllTextAsync(scriptPath, script, Encoding.UTF8, cancellationToken);
+
+            // Base64 encode the script to prevent metacharacter injection and eliminate temp script file race.
+            var encodedCommand = Convert.ToBase64String(Encoding.Unicode.GetBytes(script));
 
             using var process = new Process();
             process.StartInfo = new ProcessStartInfo
@@ -184,7 +185,7 @@ Set-Content -Path '{{exitCodePath.Replace("'", "''")}}' -Value $LASTEXITCODE -En
                 UseShellExecute = true,
                 Verb = "runas",
                 CreateNoWindow = false,
-                Arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{scriptPath}\"",
+                Arguments = $"-NoProfile -ExecutionPolicy Bypass -EncodedCommand {encodedCommand}",
             };
 
             process.Start();
@@ -208,7 +209,6 @@ Set-Content -Path '{{exitCodePath.Replace("'", "''")}}' -Value $LASTEXITCODE -En
         }
         finally
         {
-            TryDelete(scriptPath);
             TryDelete(outputPath);
             TryDelete(exitCodePath);
         }
