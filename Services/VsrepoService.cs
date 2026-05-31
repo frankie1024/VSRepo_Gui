@@ -265,6 +265,7 @@ Set-Content -Path '{{exitCodePath.Replace("'", "''")}}' -Value $LASTEXITCODE -En
             var tokens = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             if (tokens.Length < 5)
             {
+                AppLog.Write($"GetInstalledAsync: skipping unparseable line ({tokens.Length} tokens): {line.Trim()}");
                 continue;
             }
 
@@ -279,8 +280,13 @@ Set-Content -Path '{{exitCodePath.Replace("'", "''")}}' -Value $LASTEXITCODE -En
                 status = PackageInstallState.InstalledUnknown;
             }
 
-            var identifier = tokens[^1];
-            var installedVersion = tokens[^3];
+            var identifier = tokens[^1].Trim();
+            var installedVersion = tokens[^3].Trim();
+            if (string.IsNullOrWhiteSpace(identifier))
+            {
+                AppLog.Write($"GetInstalledAsync: empty identifier in line: {line.Trim()}");
+                continue;
+            }
             installed[identifier] = new InstalledPackageInfo(identifier, installedVersion, status);
         }
 
@@ -319,11 +325,6 @@ Set-Content -Path '{{exitCodePath.Replace("'", "''")}}' -Value $LASTEXITCODE -En
             var probe = Path.Combine(targetDirectory, $".vsrepo_gui_write_{Guid.NewGuid():N}.tmp");
             using (File.Create(probe, 1, FileOptions.DeleteOnClose))
             {
-            }
-
-            if (File.Exists(probe))
-            {
-                File.Delete(probe);
             }
 
             return true;

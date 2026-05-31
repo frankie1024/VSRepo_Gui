@@ -146,7 +146,7 @@
                                     Style="{StaticResource StatusSummaryButtonStyle}"
                                     Click="StatusSummaryButton_Click">
                                 <StackPanel>
-                                    <TextBlock Foreground="{StaticResource StatUpdatesBrush}" Text="Updates" />
+                                    <TextBlock Foreground="{DynamicResource StatUpdatesBrush}" Text="Updates" />
                                     <TextBlock x:Name="UpdatesCountTextBlock" Margin="0,6,0,0" FontSize="26" FontWeight="SemiBold" Text="0" />
                                 </StackPanel>
                             </Button>
@@ -156,7 +156,7 @@
                                     Style="{StaticResource StatusSummaryButtonStyle}"
                                     Click="StatusSummaryButton_Click">
                                 <StackPanel>
-                                    <TextBlock Foreground="{StaticResource StatInstalledBrush}" Text="Installed" />
+                                    <TextBlock Foreground="{DynamicResource StatInstalledBrush}" Text="Installed" />
                                     <TextBlock x:Name="InstalledCountTextBlock" Margin="0,6,0,0" FontSize="26" FontWeight="SemiBold" Text="0" />
                                 </StackPanel>
                             </Button>
@@ -166,7 +166,7 @@
                                     Style="{StaticResource StatusSummaryButtonStyle}"
                                     Click="StatusSummaryButton_Click">
                                 <StackPanel>
-                                    <TextBlock Foreground="{StaticResource StatPendingBrush}" Text="Not Installed" />
+                                    <TextBlock Foreground="{DynamicResource StatPendingBrush}" Text="Not Installed" />
                                     <TextBlock x:Name="NotInstalledCountTextBlock" Margin="0,6,0,0" FontSize="26" FontWeight="SemiBold" Text="0" />
                                 </StackPanel>
                             </Button>
@@ -176,7 +176,7 @@
                                     Style="{StaticResource StatusSummaryButtonStyle}"
                                     Click="StatusSummaryButton_Click">
                                 <StackPanel>
-                                    <TextBlock Foreground="{StaticResource StatUnknownBrush}" Text="Unknown" />
+                                    <TextBlock Foreground="{DynamicResource StatUnknownBrush}" Text="Unknown" />
                                     <TextBlock x:Name="UnknownCountTextBlock" Margin="0,6,0,0" FontSize="26" FontWeight="SemiBold" Text="0" />
                                 </StackPanel>
                             </Button>
@@ -300,12 +300,12 @@
                                                 <Border Padding="10,5" MinWidth="120" CornerRadius="8">
                                                     <Border.Style>
                                                         <Style TargetType="Border" BasedOn="{StaticResource StatusBadgeBorderStyle}">
-                                                            <Setter Property="Background" Value="{StaticResource StatUpdatesBackgroundBrush}" />
+                                                            <Setter Property="Background" Value="{DynamicResource StatUpdatesBackgroundBrush}" />
                                                             <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding State}" Value="{x:Static models:PackageInstallState.Installed}"><Setter Property="Background" Value="{StaticResource StatInstalledBackgroundBrush}" /></DataTrigger>
-                                                                <DataTrigger Binding="{Binding State}" Value="{x:Static models:PackageInstallState.NotInstalled}"><Setter Property="Background" Value="{StaticResource StatUpdatesBackgroundBrush}" /></DataTrigger>
-                                                                <DataTrigger Binding="{Binding State}" Value="{x:Static models:PackageInstallState.UpdateAvailable}"><Setter Property="Background" Value="{StaticResource StatPendingBackgroundBrush}" /></DataTrigger>
-                                                                <DataTrigger Binding="{Binding State}" Value="{x:Static models:PackageInstallState.InstalledUnknown}"><Setter Property="Background" Value="{StaticResource StatUnknownBackgroundBrush}" /></DataTrigger>
+                                                                <DataTrigger Binding="{Binding State}" Value="{x:Static models:PackageInstallState.Installed}"><Setter Property="Background" Value="{DynamicResource StatInstalledBackgroundBrush}" /></DataTrigger>
+                                                                <DataTrigger Binding="{Binding State}" Value="{x:Static models:PackageInstallState.NotInstalled}"><Setter Property="Background" Value="{DynamicResource StatUpdatesBackgroundBrush}" /></DataTrigger>
+                                                                <DataTrigger Binding="{Binding State}" Value="{x:Static models:PackageInstallState.UpdateAvailable}"><Setter Property="Background" Value="{DynamicResource StatPendingBackgroundBrush}" /></DataTrigger>
+                                                                <DataTrigger Binding="{Binding State}" Value="{x:Static models:PackageInstallState.InstalledUnknown}"><Setter Property="Background" Value="{DynamicResource StatUnknownBackgroundBrush}" /></DataTrigger>
                                                             </Style.Triggers>
                                                         </Style>
                                                     </Border.Style>

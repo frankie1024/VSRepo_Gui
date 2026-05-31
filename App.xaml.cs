@@ -1,5 +1,6 @@
 using Microsoft.Win32;
 using System.Windows;
+using System.Windows.Media;
 using VSRepo_Gui.Services;
 using Wpf.Ui.Appearance;
 using Wpf.Ui.Controls;
@@ -91,11 +92,46 @@ public partial class App : Application
     {
         var theme = ResolveTheme(mode);
         ApplicationThemeManager.Apply(theme, WindowBackdropType.Mica, true);
+        UpdateStatusColors(theme == ApplicationTheme.Dark);
 
         foreach (Window window in Windows)
         {
             _ = WindowBackdrop.ApplyBackdrop(window, WindowBackdropType.Mica);
             WindowBackgroundManager.UpdateBackground(window, theme, WindowBackdropType.Mica);
+        }
+    }
+
+    private static void UpdateStatusColors(bool isDark)
+    {
+        if (isDark)
+        {
+            SetColor("StatUpdatesBrush", "#4CB4FF");
+            SetColor("StatUpdatesBackgroundBrush", "#1A3A5C");
+            SetColor("StatInstalledBrush", "#6CCB5F");
+            SetColor("StatInstalledBackgroundBrush", "#1A3A1A");
+            SetColor("StatPendingBrush", "#FDCF6E");
+            SetColor("StatPendingBackgroundBrush", "#3D2E00");
+            SetColor("StatUnknownBrush", "#FF6B6B");
+            SetColor("StatUnknownBackgroundBrush", "#3D1A1A");
+        }
+        else
+        {
+            SetColor("StatUpdatesBrush", "#0F6CBD");
+            SetColor("StatUpdatesBackgroundBrush", "#DCEBFA");
+            SetColor("StatInstalledBrush", "#0E8A16");
+            SetColor("StatInstalledBackgroundBrush", "#DFF6DD");
+            SetColor("StatPendingBrush", "#9D5D00");
+            SetColor("StatPendingBackgroundBrush", "#FFF4CE");
+            SetColor("StatUnknownBrush", "#C42B1C");
+            SetColor("StatUnknownBackgroundBrush", "#FDE7E9");
+        }
+
+        static void SetColor(string key, string color)
+        {
+            if (Application.Current.Resources[key] is SolidColorBrush brush)
+            {
+                brush.Color = (Color)ColorConverter.ConvertFromString(color);
+            }
         }
     }
 

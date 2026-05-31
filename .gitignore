@@ -17,7 +17,6 @@ TestResults/
 *.log
 
 VSRepo_Gui-v*.zip
-NuGet.config
 Assets/AppIcon.png
 Assets/AppIcon.svg
 

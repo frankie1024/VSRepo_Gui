@@ -11,6 +11,7 @@
                 <ui:ControlsDictionary />
             </ResourceDictionary.MergedDictionaries>
 
+            <!-- Light theme status colors (default) -->
             <SolidColorBrush x:Key="StatUpdatesBrush" Color="#0F6CBD" />
             <SolidColorBrush x:Key="StatUpdatesBackgroundBrush" Color="#DCEBFA" />
             <SolidColorBrush x:Key="StatInstalledBrush" Color="#0E8A16" />
@@ -47,19 +48,19 @@
             <Style x:Key="StatusBadgeTextStyle" TargetType="TextBlock">
                 <Setter Property="FontWeight" Value="SemiBold" />
                 <Setter Property="HorizontalAlignment" Value="Center" />
-                <Setter Property="Foreground" Value="{StaticResource StatUpdatesBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource StatUpdatesBrush}" />
                 <Style.Triggers>
                     <DataTrigger Binding="{Binding State}" Value="{x:Static models:PackageInstallState.Installed}">
-                        <Setter Property="Foreground" Value="{StaticResource StatInstalledBrush}" />
+                        <Setter Property="Foreground" Value="{DynamicResource StatInstalledBrush}" />
                     </DataTrigger>
                     <DataTrigger Binding="{Binding State}" Value="{x:Static models:PackageInstallState.NotInstalled}">
-                        <Setter Property="Foreground" Value="{StaticResource StatUpdatesBrush}" />
+                        <Setter Property="Foreground" Value="{DynamicResource StatUpdatesBrush}" />
                     </DataTrigger>
                     <DataTrigger Binding="{Binding State}" Value="{x:Static models:PackageInstallState.UpdateAvailable}">
-                        <Setter Property="Foreground" Value="{StaticResource StatPendingBrush}" />
+                        <Setter Property="Foreground" Value="{DynamicResource StatPendingBrush}" />
                     </DataTrigger>
                     <DataTrigger Binding="{Binding State}" Value="{x:Static models:PackageInstallState.InstalledUnknown}">
-                        <Setter Property="Foreground" Value="{StaticResource StatUnknownBrush}" />
+                        <Setter Property="Foreground" Value="{DynamicResource StatUnknownBrush}" />
                     </DataTrigger>
                 </Style.Triggers>
             </Style>

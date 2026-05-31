@@ -56,8 +56,9 @@ public sealed class AppStateService
             var json = JsonSerializer.Serialize(state, JsonOptions);
             File.WriteAllText(StatePath, json);
         }
-        catch
+        catch (Exception ex)
         {
+            AppLog.Write(ex, "AppStateService.Save");
         }
     }
 }

@@ -927,7 +927,7 @@ public partial class MainWindow : WpfFluentWindow
         }
     }
 
-    private async void PackagesGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private void PackagesGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         _selectedPackage = PackagesGrid.SelectedItem as PackageItem;
         SaveAppState();
