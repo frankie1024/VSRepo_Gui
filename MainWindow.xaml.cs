@@ -12,6 +12,8 @@ using VSRepo_Gui.Models;
 using VSRepo_Gui.Services;
 using Wpf.Ui.Appearance;
 using WpfButton = Wpf.Ui.Controls.Button;
+using WpfMessageBox = Wpf.Ui.Controls.MessageBox;
+using WpfMessageBoxResult = Wpf.Ui.Controls.MessageBoxResult;
 using WpfControlAppearance = Wpf.Ui.Controls.ControlAppearance;
 using WpfFluentWindow = Wpf.Ui.Controls.FluentWindow;
 using WpfSymbolRegular = Wpf.Ui.Controls.SymbolRegular;
@@ -20,8 +22,6 @@ namespace VSRepo_Gui;
 
 public partial class MainWindow : WpfFluentWindow
 {
-    private const double NavigationPaneCollapsedWidth = 72;
-    private const double NavigationPaneExpandedWidth = 184;
     private const string AllCategoriesLabel = "All Categories";
     private const string StatusAllLabel = "All";
     private const string StatusUpdatesLabel = "Updates";
@@ -47,7 +47,6 @@ public partial class MainWindow : WpfFluentWindow
     private VsrepoService.VsrepoPaths? _lastPaths;
     private PackageItem? _selectedPackage;
     private bool _isBusy;
-    private bool _isNavigationExpanded;
     private bool _isUpdatingThemeSelection;
     private bool _isRestoringState;
 
@@ -67,11 +66,7 @@ public partial class MainWindow : WpfFluentWindow
         CategoryFilterComboBox.ItemsSource = new[] { AllCategoriesLabel };
         CategoryFilterComboBox.SelectedIndex = 0;
         UpdateStatusSummarySelection();
-        PluginsNavButton.Appearance = WpfControlAppearance.Secondary;
         SetCurrentView("plugins");
-        SidebarHost.Width = NavigationPaneCollapsedWidth;
-        UpdateNavigationPaneLayout();
-        ApplyThemeSensitiveStyles();
         _searchDebounceTimer.Tick += SearchDebounceTimer_Tick;
         _stateDebounceTimer.Tick += StateDebounceTimer_Tick;
 
@@ -116,34 +111,6 @@ public partial class MainWindow : WpfFluentWindow
 
     private void ApplicationThemeManager_Changed(ApplicationTheme currentApplicationTheme, Color systemAccent)
     {
-        Dispatcher.InvokeAsync(ApplyThemeSensitiveStyles);
-    }
-
-    private void ApplyThemeSensitiveStyles()
-    {
-        var isDarkTheme = (Application.Current as App)?.GetEffectiveTheme() == ApplicationTheme.Dark
-                          || ApplicationThemeManager.GetAppTheme() == ApplicationTheme.Dark;
-
-        var comboStyle = (Style)FindResource(isDarkTheme ? "FluentDarkComboBoxStyle" : "FluentComboBoxStyle");
-        var comboItemStyle = (Style)FindResource(isDarkTheme ? "FluentDarkComboBoxItemStyle" : "FluentComboBoxItemStyle");
-        var textBoxStyle = (Style)FindResource(isDarkTheme ? "FluentDarkTextBoxStyle" : "FluentTextBoxStyle");
-        var readOnlyTextBoxStyle = (Style)FindResource(isDarkTheme ? "FluentDarkReadOnlyTextBoxStyle" : "FluentReadOnlyTextBoxStyle");
-
-        foreach (var comboBox in new[] { TargetComboBox, StatusFilterComboBox, CategoryFilterComboBox })
-        {
-            comboBox.Style = comboStyle;
-            comboBox.ItemContainerStyle = comboItemStyle;
-        }
-
-        foreach (var textBox in new[] { SearchTextBox, PythonPathTextBox })
-        {
-            textBox.Style = textBoxStyle;
-        }
-
-        foreach (var textBox in new[] { DefinitionsPathTextBox, BinariesPathTextBox, ScriptsPathTextBox })
-        {
-            textBox.Style = readOnlyTextBoxStyle;
-        }
     }
 
     private void ThemeModeRadioButton_Checked(object sender, RoutedEventArgs e)
@@ -160,7 +127,6 @@ public partial class MainWindow : WpfFluentWindow
 
         _appState.ThemeMode = themeMode;
         (Application.Current as App)?.SetThemeMode(themeMode);
-        ApplyThemeSensitiveStyles();
 
         if (IsLoaded)
         {
@@ -666,8 +632,7 @@ public partial class MainWindow : WpfFluentWindow
     private void SetBusy(bool busy)
     {
         _isBusy = busy;
-        SidebarHost.IsEnabled = !busy;
-        Mouse.OverrideCursor = busy ? Cursors.Wait : null;
+        BusyProgressBar.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private string GetSelectedTarget()
@@ -704,7 +669,6 @@ public partial class MainWindow : WpfFluentWindow
     {
         AppLog.Write(ex, context);
         AppendLog($"{context}: {ex.Message}");
-        MessageBox.Show(ex.Message, "VSRepo_Gui", MessageBoxButton.OK, MessageBoxImage.Error);
     }
 
     private async Task RunBusyOperationAsync(Func<Task> action, string errorContext)
@@ -771,11 +735,15 @@ public partial class MainWindow : WpfFluentWindow
 
         if (!requiresElevation && result.ExitCode != 0 && _service.IsPermissionDenied(result))
         {
-            if (MessageBox.Show(
-                    elevationPrompt,
-                    "Administrator Rights Required",
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Question) == MessageBoxResult.Yes)
+            AppendLog(elevationLogMessage);
+            var msgBox = new WpfMessageBox
+            {
+                Title = "Administrator Rights Required",
+                Content = elevationPrompt,
+                PrimaryButtonText = "Yes",
+                SecondaryButtonText = "No",
+            };
+            if (await msgBox.ShowDialogAsync() == WpfMessageBoxResult.Primary)
             {
                 result = await _service.RunVsrepoElevatedAsync(python, target, operation, packages, force, _shutdown.Token);
             }
@@ -798,31 +766,48 @@ public partial class MainWindow : WpfFluentWindow
         return !_service.CanWriteToPath(targetPath);
     }
 
-    private PackageCommand? GetPackageCommand(PackageItem item)
+    private async Task<PackageCommand?> GetPackageCommandAsync(PackageItem item)
     {
-        return item.State switch
+        switch (item.State)
         {
-            PackageInstallState.Installed when MessageBox.Show(
-                $"Uninstall {item.Name}?",
-                "Confirm",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question) == MessageBoxResult.Yes
-                => new PackageCommand("uninstall", false),
-            PackageInstallState.InstalledUnknown when MessageBox.Show(
-                $"Force-upgrade {item.Name}? Local unknown files may be overwritten.",
-                "Confirm",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Warning) == MessageBoxResult.Yes
-                => new PackageCommand("upgrade", true),
-            PackageInstallState.UpdateAvailable => new PackageCommand("upgrade", false),
-            PackageInstallState.NotInstalled => new PackageCommand("install", false),
-            _ => null
-        };
+            case PackageInstallState.Installed:
+                {
+                    var msgBox = new WpfMessageBox
+                    {
+                        Title = "Confirm",
+                        Content = $"Uninstall {item.Name}?",
+                        PrimaryButtonText = "Yes",
+                        SecondaryButtonText = "No",
+                    };
+                    return await msgBox.ShowDialogAsync() == WpfMessageBoxResult.Primary
+                        ? new PackageCommand("uninstall", false)
+                        : null;
+                }
+            case PackageInstallState.InstalledUnknown:
+                {
+                    var msgBox = new WpfMessageBox
+                    {
+                        Title = "Confirm",
+                        Content = $"Force-upgrade {item.Name}? Local unknown files may be overwritten.",
+                        PrimaryButtonText = "Yes",
+                        SecondaryButtonText = "No",
+                    };
+                    return await msgBox.ShowDialogAsync() == WpfMessageBoxResult.Primary
+                        ? new PackageCommand("upgrade", true)
+                        : null;
+                }
+            case PackageInstallState.UpdateAvailable:
+                return new PackageCommand("upgrade", false);
+            case PackageInstallState.NotInstalled:
+                return new PackageCommand("install", false);
+            default:
+                return null;
+        }
     }
 
     private async Task<bool> ExecutePackageActionAsync(PackageItem item)
     {
-        var command = GetPackageCommand(item);
+        var command = await GetPackageCommandAsync(item);
         if (command is null)
         {
             return false;
@@ -975,7 +960,7 @@ public partial class MainWindow : WpfFluentWindow
 
     private void StatusSummaryButton_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is not Button button || button.Tag is not string filter)
+        if (sender is not System.Windows.Controls.Button button || button.Tag is not string filter)
         {
             return;
         }
@@ -1095,41 +1080,9 @@ public partial class MainWindow : WpfFluentWindow
         }
     }
 
-    private void ToggleNavigationButton_Click(object sender, RoutedEventArgs e)
-    {
-        _isNavigationExpanded = !_isNavigationExpanded;
-        UpdateNavigationPaneLayout();
-    }
-
-    private void UpdateNavigationToggleIcon()
-    {
-        ToggleNavigationIcon.Symbol = _isNavigationExpanded
-            ? WpfSymbolRegular.PanelLeftContract24
-            : WpfSymbolRegular.PanelLeftExpand24;
-    }
-
-    private void UpdateNavigationPaneLayout()
-    {
-        var targetWidth = _isNavigationExpanded ? NavigationPaneExpandedWidth : NavigationPaneCollapsedWidth;
-        var animation = new DoubleAnimation
-        {
-            To = targetWidth,
-            Duration = TimeSpan.FromMilliseconds(180),
-            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseInOut }
-        };
-
-        SidebarHost.BeginAnimation(WidthProperty, animation);
-        SidebarTitleText.Visibility = _isNavigationExpanded ? Visibility.Visible : Visibility.Collapsed;
-        PluginsNavText.Visibility = _isNavigationExpanded ? Visibility.Visible : Visibility.Collapsed;
-        SettingsNavText.Visibility = _isNavigationExpanded ? Visibility.Visible : Visibility.Collapsed;
-        UpdateNavigationToggleIcon();
-    }
-
     private void SetCurrentView(string tag)
     {
         var showSettings = string.Equals(tag, "settings", StringComparison.OrdinalIgnoreCase);
-        PluginsNavButton.Appearance = showSettings ? WpfControlAppearance.Transparent : WpfControlAppearance.Secondary;
-        SettingsNavButton.Appearance = showSettings ? WpfControlAppearance.Secondary : WpfControlAppearance.Transparent;
         PluginsView.Visibility = showSettings ? Visibility.Collapsed : Visibility.Visible;
         SettingsView.Visibility = showSettings ? Visibility.Visible : Visibility.Collapsed;
     }
@@ -1144,7 +1097,7 @@ public partial class MainWindow : WpfFluentWindow
         ApplyStatusSummaryState(UnknownSummaryButton, statusFilter == StatusUnknownLabel);
     }
 
-    private static void ApplyStatusSummaryState(Button button, bool isActive)
+    private static void ApplyStatusSummaryState(System.Windows.Controls.Button button, bool isActive)
     {
         button.SetResourceReference(Control.BackgroundProperty, isActive ? "ControlFillColorSecondaryBrush" : "ControlFillColorDefaultBrush");
         button.SetResourceReference(Control.BorderBrushProperty, isActive ? "TextFillColorPrimaryBrush" : "ControlStrokeColorDefaultBrush");

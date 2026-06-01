@@ -18,442 +18,386 @@
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
         <ui:TitleBar Grid.Row="0"
                      Title="VSRepo_Gui" />
 
-        <Grid Grid.Row="1" Margin="0,4,0,0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
+        <ProgressBar x:Name="BusyProgressBar"
+                     Grid.Row="1"
+                     IsIndeterminate="True"
+                     Height="3"
+                     Visibility="Collapsed" />
 
-            <Border x:Name="SidebarHost"
-                    Grid.Column="0"
-                    Width="84"
-                    Margin="12,0,12,12"
-                    Padding="12,14"
-                    CornerRadius="18"
-                    Background="{DynamicResource ControlFillColorDefaultBrush}"
-                    BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
-                    BorderThickness="1">
-                <Grid>
+        <Grid Grid.Row="2" Margin="20,4,20,20">
+            <Grid x:Name="PluginsView">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="230" />
+                </Grid.RowDefinitions>
+
+                <DockPanel Grid.Row="0" Margin="0,8,0,16" LastChildFill="False">
+                    <StackPanel DockPanel.Dock="Left">
+                        <TextBlock Style="{StaticResource SectionTitleTextBlockStyle}" Text="Plugin Library" />
+                        <TextBlock Style="{StaticResource SectionSubtitleTextBlockStyle}" Text="Install, upgrade and remove VapourSynth plugins from one focused workspace." />
+                    </StackPanel>
+                    <WrapPanel DockPanel.Dock="Right" VerticalAlignment="Top">
+                        <ui:Button x:Name="RefreshButton" Margin="0,0,8,0" Appearance="Secondary" Click="RefreshButton_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="ArrowSync24" Margin="0,0,8,0" />
+                                <TextBlock Text="Refresh" />
+                            </StackPanel>
+                        </ui:Button>
+                        <ui:Button x:Name="UpdateDefinitionsButton" Margin="0,0,8,0" Appearance="Secondary" Click="UpdateDefinitionsButton_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="ArrowDownload24" Margin="0,0,8,0" />
+                                <TextBlock Text="Update Definitions" />
+                            </StackPanel>
+                        </ui:Button>
+                        <ui:Button x:Name="UpgradeAllButton" Margin="0,0,8,0" Appearance="Secondary" Click="UpgradeAllButton_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="ArrowUp24" Margin="0,0,8,0" />
+                                <TextBlock Text="Upgrade All" />
+                            </StackPanel>
+                        </ui:Button>
+                        <ui:Button x:Name="SettingsNavButton" Appearance="Secondary" Click="SettingsNavButton_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="Settings24" Margin="0,0,8,0" />
+                                <TextBlock Text="Settings" />
+                            </StackPanel>
+                        </ui:Button>
+                    </WrapPanel>
+                </DockPanel>
+
+                <Grid Grid.Row="1" Margin="0,0,0,16">
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
-                    <TextBlock x:Name="SidebarTitleText"
-                               Grid.Row="0"
-                               Margin="6,0,0,10"
-                               FontSize="16"
-                               FontWeight="SemiBold"
-                               Text="VSRepo_Gui"
-                               Visibility="Collapsed" />
+                    <UniformGrid Grid.Row="0" Columns="4" Margin="0,0,0,16">
+                        <Button x:Name="UpdatesSummaryButton"
+                                Margin="0,0,10,0"
+                                Tag="Updates"
+                                Style="{StaticResource StatusSummaryButtonStyle}"
+                                Click="StatusSummaryButton_Click">
+                            <StackPanel>
+                                <TextBlock Foreground="{DynamicResource StatUpdatesBrush}" Text="Updates" />
+                                <TextBlock x:Name="UpdatesCountTextBlock" Margin="0,6,0,0" FontSize="26" FontWeight="SemiBold" Text="0" />
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="InstalledSummaryButton"
+                                Margin="10,0,10,0"
+                                Tag="Installed"
+                                Style="{StaticResource StatusSummaryButtonStyle}"
+                                Click="StatusSummaryButton_Click">
+                            <StackPanel>
+                                <TextBlock Foreground="{DynamicResource StatInstalledBrush}" Text="Installed" />
+                                <TextBlock x:Name="InstalledCountTextBlock" Margin="0,6,0,0" FontSize="26" FontWeight="SemiBold" Text="0" />
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="NotInstalledSummaryButton"
+                                Margin="10,0,10,0"
+                                Tag="Not Installed"
+                                Style="{StaticResource StatusSummaryButtonStyle}"
+                                Click="StatusSummaryButton_Click">
+                            <StackPanel>
+                                <TextBlock Foreground="{DynamicResource StatPendingBrush}" Text="Not Installed" />
+                                <TextBlock x:Name="NotInstalledCountTextBlock" Margin="0,6,0,0" FontSize="26" FontWeight="SemiBold" Text="0" />
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="UnknownSummaryButton"
+                                Margin="10,0,0,0"
+                                Tag="Unknown Version"
+                                Style="{StaticResource StatusSummaryButtonStyle}"
+                                Click="StatusSummaryButton_Click">
+                            <StackPanel>
+                                <TextBlock Foreground="{DynamicResource StatUnknownBrush}" Text="Unknown" />
+                                <TextBlock x:Name="UnknownCountTextBlock" Margin="0,6,0,0" FontSize="26" FontWeight="SemiBold" Text="0" />
+                            </StackPanel>
+                        </Button>
+                    </UniformGrid>
 
-                    <ui:Button x:Name="ToggleNavigationButton"
-                               Grid.Row="1"
-                               Width="44"
-                               Height="44"
-                               Margin="0,0,0,12"
-                               Appearance="Secondary"
-                               HorizontalAlignment="Left"
-                               Click="ToggleNavigationButton_Click">
-                        <ui:SymbolIcon x:Name="ToggleNavigationIcon" Symbol="PanelLeftExpand24" />
-                    </ui:Button>
+                    <ui:Card Grid.Row="1" Padding="18">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="160" />
+                                <ColumnDefinition Width="190" />
+                                <ColumnDefinition Width="270" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
 
-                    <ui:Button x:Name="PluginsNavButton"
-                               Grid.Row="2"
-                               Margin="0,0,0,8"
-                               Appearance="Transparent"
-                               HorizontalAlignment="Stretch"
-                               Click="PluginsNavButton_Click">
-                        <StackPanel HorizontalAlignment="Center">
-                            <ui:SymbolIcon x:Name="PluginsNavIcon" Symbol="PuzzlePiece24" HorizontalAlignment="Center" />
-                            <TextBlock x:Name="PluginsNavText" Margin="0,8,0,0" HorizontalAlignment="Center" Text="Plugins" Visibility="Collapsed" />
-                        </StackPanel>
-                    </ui:Button>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Style="{StaticResource FieldLabelTextBlockStyle}" Text="Target" />
+                                <ComboBox x:Name="TargetComboBox"
+                                          Style="{StaticResource FluentComboBoxStyle}"
+                                          ItemContainerStyle="{StaticResource FluentComboBoxItemStyle}"
+                                          PreviewMouseLeftButtonDown="FilterComboBox_PreviewMouseLeftButtonDown"
+                                          SelectionChanged="TargetComboBox_SelectionChanged" />
+                            </StackPanel>
 
-                    <Separator x:Name="SidebarSeparator"
-                               Grid.Row="4"
-                               Margin="0,10,0,12" />
+                            <StackPanel Grid.Column="1" Margin="0,0,16,0">
+                                <TextBlock Style="{StaticResource FieldLabelTextBlockStyle}" Text="Status" />
+                                <ComboBox x:Name="StatusFilterComboBox"
+                                          Style="{StaticResource FluentComboBoxStyle}"
+                                          ItemContainerStyle="{StaticResource FluentComboBoxItemStyle}"
+                                          PreviewMouseLeftButtonDown="FilterComboBox_PreviewMouseLeftButtonDown"
+                                          SelectionChanged="FilterChanged" />
+                            </StackPanel>
 
-                    <ui:Button x:Name="SettingsNavButton"
-                               Grid.Row="5"
-                               Appearance="Transparent"
-                               HorizontalAlignment="Stretch"
-                               Click="SettingsNavButton_Click">
-                        <StackPanel HorizontalAlignment="Center">
-                            <ui:SymbolIcon x:Name="SettingsNavIcon" Symbol="Settings24" HorizontalAlignment="Center" />
-                            <TextBlock x:Name="SettingsNavText" Margin="0,8,0,0" HorizontalAlignment="Center" Text="Settings" Visibility="Collapsed" />
-                        </StackPanel>
-                    </ui:Button>
+                            <StackPanel Grid.Column="2" Margin="0,0,16,0">
+                                <TextBlock Style="{StaticResource FieldLabelTextBlockStyle}" Text="Category" />
+                                <ComboBox x:Name="CategoryFilterComboBox"
+                                          Style="{StaticResource FluentComboBoxStyle}"
+                                          ItemContainerStyle="{StaticResource FluentComboBoxItemStyle}"
+                                          PreviewMouseLeftButtonDown="FilterComboBox_PreviewMouseLeftButtonDown"
+                                          SelectionChanged="FilterChanged" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="3">
+                                <TextBlock Style="{StaticResource FieldLabelTextBlockStyle}" Text="Search" />
+                                <ui:TextBox x:Name="SearchTextBox"
+                                            Style="{StaticResource FluentTextBoxStyle}"
+                                            PlaceholderText="Name, namespace, identifier..."
+                                            TextChanged="SearchTextBox_TextChanged" />
+                            </StackPanel>
+                        </Grid>
+                    </ui:Card>
                 </Grid>
-            </Border>
 
-            <Grid Grid.Column="1" Margin="0,0,20,20">
-                <Grid x:Name="PluginsView">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                        <RowDefinition Height="230" />
-                    </Grid.RowDefinitions>
+                <Grid Grid.Row="2" Margin="0,0,0,16">
+                    <ui:Card Padding="8">
+                        <DataGrid x:Name="PackagesGrid"
+                                  AutoGenerateColumns="False"
+                                  CanUserAddRows="False"
+                                  IsReadOnly="True"
+                                  BorderThickness="0"
+                                  GridLinesVisibility="Horizontal"
+                                  HeadersVisibility="Column"
+                                  SelectionMode="Single"
+                                  SelectionUnit="FullRow"
+                                  SelectionChanged="PackagesGrid_SelectionChanged"
+                                  MouseDoubleClick="PackagesGrid_MouseDoubleClick"
+                                  PreviewKeyDown="PackagesGrid_PreviewKeyDown"
+                                  VirtualizingPanel.IsVirtualizing="True"
+                                  VirtualizingPanel.VirtualizationMode="Recycling"
+                                  ScrollViewer.CanContentScroll="True">
+                            <DataGrid.Columns>
+                                <DataGridTemplateColumn Header="Action" Width="108">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <ui:Button Tag="{Binding}" Click="PackageAction_Click">
+                                                <TextBlock Text="{Binding ActionText}" />
+                                            </ui:Button>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="1.4*">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource GridCellTextStyle}">
+                                            <Setter Property="ToolTip" Value="{Binding Name}" />
+                                        </Style>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Header="Namespace / Module" Binding="{Binding NamespaceOrModule}" Width="1.35*">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource GridCellTextStyle}">
+                                            <Setter Property="ToolTip" Value="{Binding NamespaceOrModule}" />
+                                        </Style>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="0.95*">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource GridCellTextStyle}">
+                                            <Setter Property="ToolTip" Value="{Binding Category}" />
+                                        </Style>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Header="Installed" Binding="{Binding InstalledVersion}" Width="92">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource GridCellTextStyle}">
+                                            <Setter Property="ToolTip" Value="{Binding InstalledVersion}" />
+                                        </Style>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Header="Latest" Binding="{Binding LatestVersion}" Width="92">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource GridCellTextStyle}">
+                                            <Setter Property="ToolTip" Value="{Binding LatestVersion}" />
+                                        </Style>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Header="Published" Binding="{Binding LatestPublishedText}" Width="118">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource GridCellTextStyle}">
+                                            <Setter Property="ToolTip" Value="{Binding LatestPublishedText}" />
+                                        </Style>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                                <DataGridTemplateColumn Header="State" Width="152">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Border Padding="10,5" MinWidth="120" CornerRadius="8">
+                                                <Border.Style>
+                                                    <Style TargetType="Border" BasedOn="{StaticResource StatusBadgeBorderStyle}">
+                                                        <Setter Property="Background" Value="{DynamicResource StatUpdatesBackgroundBrush}" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding State}" Value="{x:Static models:PackageInstallState.Installed}"><Setter Property="Background" Value="{DynamicResource StatInstalledBackgroundBrush}" /></DataTrigger>
+                                                            <DataTrigger Binding="{Binding State}" Value="{x:Static models:PackageInstallState.NotInstalled}"><Setter Property="Background" Value="{DynamicResource StatUpdatesBackgroundBrush}" /></DataTrigger>
+                                                            <DataTrigger Binding="{Binding State}" Value="{x:Static models:PackageInstallState.UpdateAvailable}"><Setter Property="Background" Value="{DynamicResource StatPendingBackgroundBrush}" /></DataTrigger>
+                                                            <DataTrigger Binding="{Binding State}" Value="{x:Static models:PackageInstallState.InstalledUnknown}"><Setter Property="Background" Value="{DynamicResource StatUnknownBackgroundBrush}" /></DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                <TextBlock Text="{Binding StateText}" Style="{StaticResource StatusBadgeTextStyle}" />
+                                            </Border>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTextColumn Header="Identifier" Binding="{Binding Identifier}" Width="1.6*">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource GridCellTextStyle}">
+                                            <Setter Property="ToolTip" Value="{Binding Identifier}" />
+                                        </Style>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </ui:Card>
+                </Grid>
 
-                    <DockPanel Grid.Row="0" Margin="0,8,0,16">
-                        <StackPanel DockPanel.Dock="Left">
-                            <TextBlock Style="{StaticResource SectionTitleTextBlockStyle}" Text="Plugin Library" />
-                            <TextBlock Style="{StaticResource SectionSubtitleTextBlockStyle}" Text="Install, upgrade and remove VapourSynth plugins from one focused workspace." />
+                <ui:Card Grid.Row="3" Padding="16">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <DockPanel LastChildFill="False">
+                            <TextBlock DockPanel.Dock="Left" FontSize="16" FontWeight="SemiBold" Text="Logs" />
+                            <ui:Button DockPanel.Dock="Right" Appearance="Secondary" Click="OpenLogFolderButton_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <ui:SymbolIcon Symbol="FolderOpen24" Margin="0,0,8,0" />
+                                    <TextBlock Text="Open Log Folder" />
+                                </StackPanel>
+                            </ui:Button>
+                            <ui:Button DockPanel.Dock="Right" Margin="0,0,8,0" Appearance="Secondary" Click="ClearLogButton_Click">
+                                <TextBlock Text="Clear" />
+                            </ui:Button>
+                        </DockPanel>
+                        <TextBox x:Name="LogTextBox" Grid.Row="1" Margin="0,14,0,0" FontFamily="Cascadia Mono" FontSize="12.5" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" />
+                    </Grid>
+                </ui:Card>
+            </Grid>
+
+            <Grid x:Name="SettingsView" Visibility="Collapsed">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <DockPanel Grid.Row="0" Margin="0,8,0,16" LastChildFill="False">
+                    <TextBlock DockPanel.Dock="Left" Style="{StaticResource SectionTitleTextBlockStyle}" Text="Settings" />
+                    <ui:Button DockPanel.Dock="Right" Appearance="Secondary" Click="PluginsNavButton_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <ui:SymbolIcon Symbol="ArrowLeft24" Margin="0,0,8,0" />
+                            <TextBlock Text="Back" />
                         </StackPanel>
-                        <WrapPanel DockPanel.Dock="Right" VerticalAlignment="Top">
-                            <ui:Button x:Name="RefreshButton" Margin="0,0,8,0" Appearance="Secondary" Click="RefreshButton_Click">
-                                <StackPanel Orientation="Horizontal">
-                                    <ui:SymbolIcon Symbol="ArrowSync24" Margin="0,0,8,0" />
-                                    <TextBlock Text="Refresh" />
-                                </StackPanel>
-                            </ui:Button>
-                            <ui:Button x:Name="UpdateDefinitionsButton" Margin="0,0,8,0" Appearance="Secondary" Click="UpdateDefinitionsButton_Click">
-                                <StackPanel Orientation="Horizontal">
-                                    <ui:SymbolIcon Symbol="ArrowDownload24" Margin="0,0,8,0" />
-                                    <TextBlock Text="Update Definitions" />
-                                </StackPanel>
-                            </ui:Button>
-                            <ui:Button x:Name="UpgradeAllButton" Appearance="Secondary" Click="UpgradeAllButton_Click">
-                                <StackPanel Orientation="Horizontal">
-                                    <ui:SymbolIcon Symbol="ArrowUp24" Margin="0,0,8,0" />
-                                    <TextBlock Text="Upgrade All" />
-                                </StackPanel>
-                            </ui:Button>
-                        </WrapPanel>
-                    </DockPanel>
+                    </ui:Button>
+                </DockPanel>
 
-                    <Grid Grid.Row="1" Margin="0,0,0,16">
+                <ui:Card Grid.Row="1" Padding="18" Margin="0,0,0,16">
+                    <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
 
-                        <UniformGrid Grid.Row="0" Columns="4" Margin="0,0,0,16">
-                            <Button x:Name="UpdatesSummaryButton"
-                                    Margin="0,0,10,0"
-                                    Tag="Updates"
-                                    Style="{StaticResource StatusSummaryButtonStyle}"
-                                    Click="StatusSummaryButton_Click">
-                                <StackPanel>
-                                    <TextBlock Foreground="{DynamicResource StatUpdatesBrush}" Text="Updates" />
-                                    <TextBlock x:Name="UpdatesCountTextBlock" Margin="0,6,0,0" FontSize="26" FontWeight="SemiBold" Text="0" />
-                                </StackPanel>
-                            </Button>
-                            <Button x:Name="InstalledSummaryButton"
-                                    Margin="10,0,10,0"
-                                    Tag="Installed"
-                                    Style="{StaticResource StatusSummaryButtonStyle}"
-                                    Click="StatusSummaryButton_Click">
-                                <StackPanel>
-                                    <TextBlock Foreground="{DynamicResource StatInstalledBrush}" Text="Installed" />
-                                    <TextBlock x:Name="InstalledCountTextBlock" Margin="0,6,0,0" FontSize="26" FontWeight="SemiBold" Text="0" />
-                                </StackPanel>
-                            </Button>
-                            <Button x:Name="NotInstalledSummaryButton"
-                                    Margin="10,0,10,0"
-                                    Tag="Not Installed"
-                                    Style="{StaticResource StatusSummaryButtonStyle}"
-                                    Click="StatusSummaryButton_Click">
-                                <StackPanel>
-                                    <TextBlock Foreground="{DynamicResource StatPendingBrush}" Text="Not Installed" />
-                                    <TextBlock x:Name="NotInstalledCountTextBlock" Margin="0,6,0,0" FontSize="26" FontWeight="SemiBold" Text="0" />
-                                </StackPanel>
-                            </Button>
-                            <Button x:Name="UnknownSummaryButton"
-                                    Margin="10,0,0,0"
-                                    Tag="Unknown Version"
-                                    Style="{StaticResource StatusSummaryButtonStyle}"
-                                    Click="StatusSummaryButton_Click">
-                                <StackPanel>
-                                    <TextBlock Foreground="{DynamicResource StatUnknownBrush}" Text="Unknown" />
-                                    <TextBlock x:Name="UnknownCountTextBlock" Margin="0,6,0,0" FontSize="26" FontWeight="SemiBold" Text="0" />
-                                </StackPanel>
-                            </Button>
-                        </UniformGrid>
-
-                        <ui:Card Grid.Row="1" Padding="18">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="160" />
-                                    <ColumnDefinition Width="190" />
-                                    <ColumnDefinition Width="270" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-
-                                <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                    <TextBlock Style="{StaticResource FieldLabelTextBlockStyle}" Text="Target" />
-                                    <ComboBox x:Name="TargetComboBox"
-                                              Style="{StaticResource FluentComboBoxStyle}"
-                                              ItemContainerStyle="{StaticResource FluentComboBoxItemStyle}"
-                                              PreviewMouseLeftButtonDown="FilterComboBox_PreviewMouseLeftButtonDown"
-                                              SelectionChanged="TargetComboBox_SelectionChanged" />
-                                </StackPanel>
-
-                                <StackPanel Grid.Column="1" Margin="0,0,16,0">
-                                    <TextBlock Style="{StaticResource FieldLabelTextBlockStyle}" Text="Status" />
-                                    <ComboBox x:Name="StatusFilterComboBox"
-                                              Style="{StaticResource FluentComboBoxStyle}"
-                                              ItemContainerStyle="{StaticResource FluentComboBoxItemStyle}"
-                                              PreviewMouseLeftButtonDown="FilterComboBox_PreviewMouseLeftButtonDown"
-                                              SelectionChanged="FilterChanged" />
-                                </StackPanel>
-
-                                <StackPanel Grid.Column="2" Margin="0,0,16,0">
-                                    <TextBlock Style="{StaticResource FieldLabelTextBlockStyle}" Text="Category" />
-                                    <ComboBox x:Name="CategoryFilterComboBox"
-                                              Style="{StaticResource FluentComboBoxStyle}"
-                                              ItemContainerStyle="{StaticResource FluentComboBoxItemStyle}"
-                                              PreviewMouseLeftButtonDown="FilterComboBox_PreviewMouseLeftButtonDown"
-                                              SelectionChanged="FilterChanged" />
-                                </StackPanel>
-
-                                <StackPanel Grid.Column="3">
-                                    <TextBlock Style="{StaticResource FieldLabelTextBlockStyle}" Text="Search" />
-                                    <ui:TextBox x:Name="SearchTextBox"
-                                                Style="{StaticResource FluentTextBoxStyle}"
-                                                PlaceholderText="Name, namespace, identifier..."
-                                                TextChanged="SearchTextBox_TextChanged" />
-                                </StackPanel>
-                            </Grid>
-                        </ui:Card>
-                    </Grid>
-
-                    <Grid Grid.Row="2" Margin="0,0,0,16">
-                        <ui:Card Padding="8">
-                            <DataGrid x:Name="PackagesGrid"
-                                      AutoGenerateColumns="False"
-                                      CanUserAddRows="False"
-                                      IsReadOnly="True"
-                                      BorderThickness="0"
-                                      GridLinesVisibility="Horizontal"
-                                      HeadersVisibility="Column"
-                                      SelectionMode="Single"
-                                      SelectionUnit="FullRow"
-                                      SelectionChanged="PackagesGrid_SelectionChanged"
-                                      MouseDoubleClick="PackagesGrid_MouseDoubleClick"
-                                      PreviewKeyDown="PackagesGrid_PreviewKeyDown"
-                                      VirtualizingPanel.IsVirtualizing="True"
-                                      VirtualizingPanel.VirtualizationMode="Recycling"
-                                      ScrollViewer.CanContentScroll="True">
-                                <DataGrid.Columns>
-                                    <DataGridTemplateColumn Header="Action" Width="108">
-                                        <DataGridTemplateColumn.CellTemplate>
-                                            <DataTemplate>
-                                                <ui:Button Tag="{Binding}" Click="PackageAction_Click">
-                                                    <TextBlock Text="{Binding ActionText}" />
-                                                </ui:Button>
-                                            </DataTemplate>
-                                        </DataGridTemplateColumn.CellTemplate>
-                                    </DataGridTemplateColumn>
-                                    <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="1.4*">
-                                        <DataGridTextColumn.ElementStyle>
-                                            <Style TargetType="TextBlock" BasedOn="{StaticResource GridCellTextStyle}">
-                                                <Setter Property="ToolTip" Value="{Binding Name}" />
-                                            </Style>
-                                        </DataGridTextColumn.ElementStyle>
-                                    </DataGridTextColumn>
-                                    <DataGridTextColumn Header="Namespace / Module" Binding="{Binding NamespaceOrModule}" Width="1.35*">
-                                        <DataGridTextColumn.ElementStyle>
-                                            <Style TargetType="TextBlock" BasedOn="{StaticResource GridCellTextStyle}">
-                                                <Setter Property="ToolTip" Value="{Binding NamespaceOrModule}" />
-                                            </Style>
-                                        </DataGridTextColumn.ElementStyle>
-                                    </DataGridTextColumn>
-                                    <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="0.95*">
-                                        <DataGridTextColumn.ElementStyle>
-                                            <Style TargetType="TextBlock" BasedOn="{StaticResource GridCellTextStyle}">
-                                                <Setter Property="ToolTip" Value="{Binding Category}" />
-                                            </Style>
-                                        </DataGridTextColumn.ElementStyle>
-                                    </DataGridTextColumn>
-                                    <DataGridTextColumn Header="Installed" Binding="{Binding InstalledVersion}" Width="92">
-                                        <DataGridTextColumn.ElementStyle>
-                                            <Style TargetType="TextBlock" BasedOn="{StaticResource GridCellTextStyle}">
-                                                <Setter Property="ToolTip" Value="{Binding InstalledVersion}" />
-                                            </Style>
-                                        </DataGridTextColumn.ElementStyle>
-                                    </DataGridTextColumn>
-                                    <DataGridTextColumn Header="Latest" Binding="{Binding LatestVersion}" Width="92">
-                                        <DataGridTextColumn.ElementStyle>
-                                            <Style TargetType="TextBlock" BasedOn="{StaticResource GridCellTextStyle}">
-                                                <Setter Property="ToolTip" Value="{Binding LatestVersion}" />
-                                            </Style>
-                                        </DataGridTextColumn.ElementStyle>
-                                    </DataGridTextColumn>
-                                    <DataGridTextColumn Header="Published" Binding="{Binding LatestPublishedText}" Width="118">
-                                        <DataGridTextColumn.ElementStyle>
-                                            <Style TargetType="TextBlock" BasedOn="{StaticResource GridCellTextStyle}">
-                                                <Setter Property="ToolTip" Value="{Binding LatestPublishedText}" />
-                                            </Style>
-                                        </DataGridTextColumn.ElementStyle>
-                                    </DataGridTextColumn>
-                                    <DataGridTemplateColumn Header="State" Width="152">
-                                        <DataGridTemplateColumn.CellTemplate>
-                                            <DataTemplate>
-                                                <Border Padding="10,5" MinWidth="120" CornerRadius="8">
-                                                    <Border.Style>
-                                                        <Style TargetType="Border" BasedOn="{StaticResource StatusBadgeBorderStyle}">
-                                                            <Setter Property="Background" Value="{DynamicResource StatUpdatesBackgroundBrush}" />
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding State}" Value="{x:Static models:PackageInstallState.Installed}"><Setter Property="Background" Value="{DynamicResource StatInstalledBackgroundBrush}" /></DataTrigger>
-                                                                <DataTrigger Binding="{Binding State}" Value="{x:Static models:PackageInstallState.NotInstalled}"><Setter Property="Background" Value="{DynamicResource StatUpdatesBackgroundBrush}" /></DataTrigger>
-                                                                <DataTrigger Binding="{Binding State}" Value="{x:Static models:PackageInstallState.UpdateAvailable}"><Setter Property="Background" Value="{DynamicResource StatPendingBackgroundBrush}" /></DataTrigger>
-                                                                <DataTrigger Binding="{Binding State}" Value="{x:Static models:PackageInstallState.InstalledUnknown}"><Setter Property="Background" Value="{DynamicResource StatUnknownBackgroundBrush}" /></DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </Border.Style>
-                                                    <TextBlock Text="{Binding StateText}" Style="{StaticResource StatusBadgeTextStyle}" />
-                                                </Border>
-                                            </DataTemplate>
-                                        </DataGridTemplateColumn.CellTemplate>
-                                    </DataGridTemplateColumn>
-                                    <DataGridTextColumn Header="Identifier" Binding="{Binding Identifier}" Width="1.6*">
-                                        <DataGridTextColumn.ElementStyle>
-                                            <Style TargetType="TextBlock" BasedOn="{StaticResource GridCellTextStyle}">
-                                                <Setter Property="ToolTip" Value="{Binding Identifier}" />
-                                            </Style>
-                                        </DataGridTextColumn.ElementStyle>
-                                    </DataGridTextColumn>
-                                </DataGrid.Columns>
-                            </DataGrid>
-                        </ui:Card>
-                    </Grid>
-
-                    <ui:Card Grid.Row="3" Padding="16">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="*" />
-                            </Grid.RowDefinitions>
-                            <DockPanel LastChildFill="False">
-                                <TextBlock DockPanel.Dock="Left" FontSize="16" FontWeight="SemiBold" Text="Logs" />
-                                <ui:Button DockPanel.Dock="Right" Appearance="Secondary" Click="OpenLogFolderButton_Click">
+                        <TextBlock Grid.Row="0" Grid.Column="0" Margin="0,8,12,0" Text="Theme" />
+                        <Border Grid.Row="0"
+                                Grid.Column="1"
+                                Grid.ColumnSpan="4"
+                                Padding="4"
+                                HorizontalAlignment="Left"
+                                Background="{DynamicResource ControlFillColorTertiaryBrush}"
+                                CornerRadius="14">
+                            <UniformGrid Columns="3">
+                                <RadioButton x:Name="LightThemeRadioButton"
+                                             Tag="Light"
+                                             GroupName="ThemeModeGroup"
+                                             Style="{StaticResource ThemeModeOptionStyle}"
+                                             Checked="ThemeModeRadioButton_Checked">
                                     <StackPanel Orientation="Horizontal">
-                                        <ui:SymbolIcon Symbol="FolderOpen24" Margin="0,0,8,0" />
-                                        <TextBlock Text="Open Log Folder" />
+                                        <ui:SymbolIcon Symbol="WeatherSunny24" Margin="0,0,8,0" />
+                                        <TextBlock Text="Light" />
                                     </StackPanel>
-                                </ui:Button>
-                                <ui:Button DockPanel.Dock="Right" Margin="0,0,8,0" Appearance="Secondary" Click="ClearLogButton_Click">
-                                    <TextBlock Text="Clear" />
-                                </ui:Button>
-                            </DockPanel>
-                            <TextBox x:Name="LogTextBox" Grid.Row="1" Margin="0,14,0,0" FontFamily="Cascadia Mono" FontSize="12.5" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" />
-                        </Grid>
-                    </ui:Card>
-                </Grid>
+                                </RadioButton>
+                                <RadioButton x:Name="DarkThemeRadioButton"
+                                             Tag="Dark"
+                                             GroupName="ThemeModeGroup"
+                                             Style="{StaticResource ThemeModeOptionStyle}"
+                                             Checked="ThemeModeRadioButton_Checked">
+                                    <StackPanel Orientation="Horizontal">
+                                        <ui:SymbolIcon Symbol="WeatherMoon24" Margin="0,0,8,0" />
+                                        <TextBlock Text="Dark" />
+                                    </StackPanel>
+                                </RadioButton>
+                                <RadioButton x:Name="SystemThemeRadioButton"
+                                             Tag="System"
+                                             GroupName="ThemeModeGroup"
+                                             Style="{StaticResource ThemeModeOptionStyle}"
+                                             Checked="ThemeModeRadioButton_Checked">
+                                    <StackPanel Orientation="Horizontal">
+                                        <ui:SymbolIcon Symbol="Desktop24" Margin="0,0,8,0" />
+                                        <TextBlock Text="System" />
+                                    </StackPanel>
+                                </RadioButton>
+                            </UniformGrid>
+                        </Border>
 
-                <Grid x:Name="SettingsView" Visibility="Collapsed">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
-
-                    <StackPanel Grid.Row="0" Margin="0,8,0,16">
-                        <TextBlock Style="{StaticResource SectionTitleTextBlockStyle}" Text="Settings" />
-                    </StackPanel>
-
-                    <ui:Card Grid.Row="1" Padding="18" Margin="0,0,0,16">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                            </Grid.RowDefinitions>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-
-                            <TextBlock Grid.Row="0" Grid.Column="0" Margin="0,8,12,0" Text="Theme" />
-                            <Border Grid.Row="0"
+                        <TextBlock Grid.Row="1" Grid.Column="0" Margin="0,20,12,0" Text="Python" />
+                        <ui:TextBox x:Name="PythonPathTextBox"
+                                    Grid.Row="1"
                                     Grid.Column="1"
-                                    Grid.ColumnSpan="4"
-                                    Padding="4"
-                                    HorizontalAlignment="Left"
-                                    Background="{DynamicResource ControlFillColorTertiaryBrush}"
-                                    CornerRadius="14">
-                                <UniformGrid Columns="3">
-                                    <RadioButton x:Name="LightThemeRadioButton"
-                                                 Tag="Light"
-                                                 GroupName="ThemeModeGroup"
-                                                 Style="{StaticResource ThemeModeOptionStyle}"
-                                                 Checked="ThemeModeRadioButton_Checked">
-                                        <StackPanel Orientation="Horizontal">
-                                            <ui:SymbolIcon Symbol="WeatherSunny24" Margin="0,0,8,0" />
-                                            <TextBlock Text="Light" />
-                                        </StackPanel>
-                                    </RadioButton>
-                                    <RadioButton x:Name="DarkThemeRadioButton"
-                                                 Tag="Dark"
-                                                 GroupName="ThemeModeGroup"
-                                                 Style="{StaticResource ThemeModeOptionStyle}"
-                                                 Checked="ThemeModeRadioButton_Checked">
-                                        <StackPanel Orientation="Horizontal">
-                                            <ui:SymbolIcon Symbol="WeatherMoon24" Margin="0,0,8,0" />
-                                            <TextBlock Text="Dark" />
-                                        </StackPanel>
-                                    </RadioButton>
-                                    <RadioButton x:Name="SystemThemeRadioButton"
-                                                 Tag="System"
-                                                 GroupName="ThemeModeGroup"
-                                                 Style="{StaticResource ThemeModeOptionStyle}"
-                                                 Checked="ThemeModeRadioButton_Checked">
-                                        <StackPanel Orientation="Horizontal">
-                                            <ui:SymbolIcon Symbol="Desktop24" Margin="0,0,8,0" />
-                                            <TextBlock Text="System" />
-                                        </StackPanel>
-                                    </RadioButton>
-                                </UniformGrid>
-                            </Border>
+                                    Margin="0,12,12,0"
+                                    Style="{StaticResource FluentTextBoxStyle}"
+                                    PlaceholderText="Select python.exe" />
+                        <ui:Button x:Name="BrowsePythonButton" Grid.Row="1" Grid.Column="2" Margin="0,12,8,0" Appearance="Secondary" Click="BrowsePythonButton_Click"><TextBlock Text="Browse" /></ui:Button>
+                        <ui:Button x:Name="DetectPythonButton" Grid.Row="1" Grid.Column="3" Margin="0,12,8,0" Appearance="Secondary" Click="DetectPythonButton_Click"><TextBlock Text="Auto Detect" /></ui:Button>
+                        <ui:Button x:Name="ProbeButton" Grid.Row="1" Grid.Column="4" Margin="0,12,0,0" Appearance="Primary" Click="ProbeButton_Click"><TextBlock Text="Probe" /></ui:Button>
 
-                            <TextBlock Grid.Row="1" Grid.Column="0" Margin="0,20,12,0" Text="Python" />
-                            <ui:TextBox x:Name="PythonPathTextBox"
-                                        Grid.Row="1"
-                                        Grid.Column="1"
-                                        Margin="0,12,12,0"
-                                        Style="{StaticResource FluentTextBoxStyle}"
-                                        PlaceholderText="Select python.exe" />
-                            <ui:Button x:Name="BrowsePythonButton" Grid.Row="1" Grid.Column="2" Margin="0,12,8,0" Appearance="Secondary" Click="BrowsePythonButton_Click"><TextBlock Text="Browse" /></ui:Button>
-                            <ui:Button x:Name="DetectPythonButton" Grid.Row="1" Grid.Column="3" Margin="0,12,8,0" Appearance="Secondary" Click="DetectPythonButton_Click"><TextBlock Text="Auto Detect" /></ui:Button>
-                            <ui:Button x:Name="ProbeButton" Grid.Row="1" Grid.Column="4" Margin="0,12,0,0" Appearance="Primary" Click="ProbeButton_Click"><TextBlock Text="Probe" /></ui:Button>
+                        <TextBlock Grid.Row="2" Grid.Column="0" Margin="0,22,12,0" Text="Status" />
+                        <TextBlock x:Name="StatusTextBlock" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="4" Margin="0,22,0,0" TextWrapping="Wrap" />
 
-                            <TextBlock Grid.Row="2" Grid.Column="0" Margin="0,22,12,0" Text="Status" />
-                            <TextBlock x:Name="StatusTextBlock" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="4" Margin="0,22,0,0" TextWrapping="Wrap" />
+                        <WrapPanel Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="5" Margin="0,20,0,0" ItemHeight="38">
+                            <TextBlock Margin="0,8,10,0" Text="Definitions" />
+                            <ui:TextBox x:Name="DefinitionsPathTextBox" Width="360" Margin="0,0,8,0" Style="{StaticResource FluentReadOnlyTextBoxStyle}" />
+                            <ui:Button Appearance="Secondary" Margin="0,0,18,0" Click="OpenDefinitionsButton_Click"><TextBlock Text="Open" /></ui:Button>
+                            <TextBlock Margin="0,8,10,0" Text="Binaries" />
+                            <ui:TextBox x:Name="BinariesPathTextBox" Width="360" Margin="0,0,8,0" Style="{StaticResource FluentReadOnlyTextBoxStyle}" />
+                            <ui:Button Appearance="Secondary" Margin="0,0,18,0" Click="OpenBinariesButton_Click"><TextBlock Text="Open" /></ui:Button>
+                            <TextBlock Margin="0,8,10,0" Text="Scripts" />
+                            <ui:TextBox x:Name="ScriptsPathTextBox" Width="360" Margin="0,0,8,0" Style="{StaticResource FluentReadOnlyTextBoxStyle}" />
+                            <ui:Button Appearance="Secondary" Click="OpenScriptsButton_Click"><TextBlock Text="Open" /></ui:Button>
+                        </WrapPanel>
+                    </Grid>
+                </ui:Card>
 
-                            <WrapPanel Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="5" Margin="0,20,0,0" ItemHeight="38">
-                                <TextBlock Margin="0,8,10,0" Text="Definitions" />
-                                <ui:TextBox x:Name="DefinitionsPathTextBox" Width="360" Margin="0,0,8,0" Style="{StaticResource FluentReadOnlyTextBoxStyle}" />
-                                <ui:Button Appearance="Secondary" Margin="0,0,18,0" Click="OpenDefinitionsButton_Click"><TextBlock Text="Open" /></ui:Button>
-                                <TextBlock Margin="0,8,10,0" Text="Binaries" />
-                                <ui:TextBox x:Name="BinariesPathTextBox" Width="360" Margin="0,0,8,0" Style="{StaticResource FluentReadOnlyTextBoxStyle}" />
-                                <ui:Button Appearance="Secondary" Margin="0,0,18,0" Click="OpenBinariesButton_Click"><TextBlock Text="Open" /></ui:Button>
-                                <TextBlock Margin="0,8,10,0" Text="Scripts" />
-                                <ui:TextBox x:Name="ScriptsPathTextBox" Width="360" Margin="0,0,8,0" Style="{StaticResource FluentReadOnlyTextBoxStyle}" />
-                                <ui:Button Appearance="Secondary" Click="OpenScriptsButton_Click"><TextBlock Text="Open" /></ui:Button>
-                            </WrapPanel>
-                        </Grid>
-                    </ui:Card>
-
-                    <Grid Grid.Row="2" />
-                </Grid>
+                <Grid Grid.Row="2" />
             </Grid>
         </Grid>
     </Grid>
 </ui:FluentWindow>
-

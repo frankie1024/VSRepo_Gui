@@ -105,6 +105,7 @@ public partial class App : Application
     {
         if (isDark)
         {
+            // Status badges
             SetColor("StatUpdatesBrush", "#4CB4FF");
             SetColor("StatUpdatesBackgroundBrush", "#1A3A5C");
             SetColor("StatInstalledBrush", "#6CCB5F");
@@ -113,9 +114,28 @@ public partial class App : Application
             SetColor("StatPendingBackgroundBrush", "#3D2E00");
             SetColor("StatUnknownBrush", "#FF6B6B");
             SetColor("StatUnknownBackgroundBrush", "#3D1A1A");
+            // ComboBox
+            SetColor("ComboBoxForegroundBrush", "#F3F3F3");
+            SetColor("ComboBoxBackgroundBrush", "#2F2F2F");
+            SetColor("ComboBoxBorderBrush", "#5A5A5A");
+            SetColor("ComboBoxArrowBrush", "#D6D6D6");
+            SetColor("ComboBoxPopupBackgroundBrush", "#242424");
+            SetColor("ComboBoxPopupBorderBrush", "#5A5A5A");
+            SetColor("ComboBoxHoverBrush", "#383838");
+            SetColor("ComboBoxFocusBorderBrush", "#8A8A8A");
+            SetColor("ComboBoxDropDownBrush", "#383838");
+            SetColor("ComboBoxItemForegroundBrush", "#F3F3F3");
+            SetColor("ComboBoxItemHoverBrush", "#3B3B3B");
+            SetColor("ComboBoxItemSelectedBrush", "#4A4A4A");
+            // TextBox
+            SetColor("TextBoxForegroundBrush", "#F3F3F3");
+            SetColor("TextBoxBackgroundBrush", "#2F2F2F");
+            SetColor("TextBoxBorderBrush", "#5A5A5A");
+            SetColor("TextBoxCaretBrush", "#F3F3F3");
         }
         else
         {
+            // Status badges
             SetColor("StatUpdatesBrush", "#0F6CBD");
             SetColor("StatUpdatesBackgroundBrush", "#DCEBFA");
             SetColor("StatInstalledBrush", "#0E8A16");
@@ -124,6 +144,24 @@ public partial class App : Application
             SetColor("StatPendingBackgroundBrush", "#FFF4CE");
             SetColor("StatUnknownBrush", "#C42B1C");
             SetColor("StatUnknownBackgroundBrush", "#FDE7E9");
+            // ComboBox
+            SetColor("ComboBoxForegroundBrush", "#1F1F1F");
+            SetColor("ComboBoxBackgroundBrush", "#FFFFFF");
+            SetColor("ComboBoxBorderBrush", "#B8B8B8");
+            SetColor("ComboBoxArrowBrush", "#5F5F5F");
+            SetColor("ComboBoxPopupBackgroundBrush", "#FFFFFF");
+            SetColor("ComboBoxPopupBorderBrush", "#CFCFCF");
+            SetColor("ComboBoxHoverBrush", "#F6F6F6");
+            SetColor("ComboBoxFocusBorderBrush", "#9A9A9A");
+            SetColor("ComboBoxDropDownBrush", "#F3F3F3");
+            SetColor("ComboBoxItemForegroundBrush", "#1F1F1F");
+            SetColor("ComboBoxItemHoverBrush", "#EFEFEF");
+            SetColor("ComboBoxItemSelectedBrush", "#E6E6E6");
+            // TextBox
+            SetColor("TextBoxForegroundBrush", "#1F1F1F");
+            SetColor("TextBoxBackgroundBrush", "#FBFBFB");
+            SetColor("TextBoxBorderBrush", "#B8B8B8");
+            SetColor("TextBoxCaretBrush", "#1F1F1F");
         }
 
         static void SetColor(string key, string color)
