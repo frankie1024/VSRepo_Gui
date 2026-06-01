@@ -96,6 +96,7 @@ public partial class MainWindow : WpfFluentWindow
 
     private void MainWindow_Closed(object? sender, EventArgs e)
     {
+        _searchDebounceTimer.Stop();
         SaveAppState();
         try
         {
@@ -104,6 +105,7 @@ public partial class MainWindow : WpfFluentWindow
         finally
         {
             _shutdown.Cancel();
+            _shutdown.Dispose();
         }
     }
 
@@ -195,7 +197,7 @@ public partial class MainWindow : WpfFluentWindow
 
     private async Task<bool> EnsureEnvironmentAsync(bool reprobe)
     {
-        var python = PythonPathTextBox.Text.Trim();
+        var python = (PythonPathTextBox.Text ?? string.Empty).Trim();
         if (string.IsNullOrWhiteSpace(python))
         {
             StatusTextBlock.Text = "Select a Python interpreter first.";
@@ -513,14 +515,28 @@ public partial class MainWindow : WpfFluentWindow
             Height = _appState.Height;
         }
 
-        if (!double.IsNaN(_appState.Left))
+        if (!double.IsNaN(_appState.Left) && !double.IsNaN(_appState.Top))
         {
-            Left = _appState.Left;
-        }
+            // Verify the saved position falls within the virtual screen bounds (all connected monitors).
+            var vLeft = SystemParameters.VirtualScreenLeft;
+            var vTop = SystemParameters.VirtualScreenTop;
+            var vRight = vLeft + SystemParameters.VirtualScreenWidth;
+            var vBottom = vTop + SystemParameters.VirtualScreenHeight;
+            var savedW = _appState.Width > 0 ? _appState.Width : Width;
+            var savedH = _appState.Height > 0 ? _appState.Height : Height;
 
-        if (!double.IsNaN(_appState.Top))
-        {
-            Top = _appState.Top;
+            // Check that at least part of the window is visible on a connected screen.
+            var onScreen = _appState.Left + savedW > vLeft
+                        && _appState.Left < vRight
+                        && _appState.Top + savedH > vTop
+                        && _appState.Top < vBottom;
+
+            if (onScreen)
+            {
+                Left = _appState.Left;
+                Top = _appState.Top;
+            }
+            // else: leave at default CenterScreen position
         }
 
         if (_appState.Maximized)
@@ -840,8 +856,23 @@ public partial class MainWindow : WpfFluentWindow
     {
         await RunBusyOperationAsync(async () =>
         {
-            var python = PythonPathTextBox.Text.Trim();
+            var python = (PythonPathTextBox.Text ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(python))
+            {
+                StatusTextBlock.Text = "Select a Python interpreter first.";
+                return;
+            }
+
             var target = GetSelectedTarget();
+
+            // Ensure environment is probed and paths are available before determining elevation.
+            if (!await EnsureEnvironmentAsync(reprobe: false))
+            {
+                return;
+            }
+
+            // Re-read after EnsureEnvironmentAsync — it may update the resolved Python path.
+            python = (PythonPathTextBox.Text ?? string.Empty).Trim();
             var requiresElevation = !_service.IsAdministrator()
                                     && (_service.CanWriteToPath(_lastPaths?.Binaries) == false
                                         || _service.CanWriteToPath(_lastPaths?.Scripts) == false);
@@ -935,18 +966,20 @@ public partial class MainWindow : WpfFluentWindow
 
     private async void PackagesGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
-        if (PackagesGrid.SelectedItem is PackageItem item)
+        if (_isBusy || PackagesGrid.SelectedItem is not PackageItem item)
         {
-            var dialog = new PackageDetailsWindow(item)
-            {
-                Owner = this
-            };
-            _ = dialog.ShowDialog();
+            return;
+        }
 
-            if (dialog.ShouldRunPrimaryAction)
-            {
-                await RunPackageActionWorkflowAsync(item, nameof(PackagesGrid_MouseDoubleClick));
-            }
+        var dialog = new PackageDetailsWindow(item)
+        {
+            Owner = this
+        };
+        _ = dialog.ShowDialog();
+
+        if (dialog.ShouldRunPrimaryAction)
+        {
+            await RunPackageActionWorkflowAsync(item, nameof(PackagesGrid_MouseDoubleClick));
         }
     }
 
@@ -991,13 +1024,13 @@ public partial class MainWindow : WpfFluentWindow
 
         if (File.Exists(path))
         {
-            Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{path}\"") { UseShellExecute = true });
+            Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{path}\"") { UseShellExecute = true })?.Dispose();
             return;
         }
 
         if (Directory.Exists(path))
         {
-            Process.Start(new ProcessStartInfo("explorer.exe", $"\"{path}\"") { UseShellExecute = true });
+            Process.Start(new ProcessStartInfo("explorer.exe", $"\"{path}\"") { UseShellExecute = true })?.Dispose();
         }
     }
 

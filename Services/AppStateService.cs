@@ -42,8 +42,9 @@ public sealed class AppStateService
             var json = File.ReadAllText(StatePath);
             return JsonSerializer.Deserialize<AppState>(json, JsonOptions) ?? new AppState();
         }
-        catch
+        catch (Exception ex)
         {
+            AppLog.Write(ex, "AppStateService.Load");
             return new AppState();
         }
     }
@@ -54,7 +55,12 @@ public sealed class AppStateService
         {
             Directory.CreateDirectory(StateDirectory);
             var json = JsonSerializer.Serialize(state, JsonOptions);
-            File.WriteAllText(StatePath, json);
+
+            // Atomic write: write to temp file first, then rename over the target.
+            // Prevents corrupt state if the process is killed mid-write.
+            var tempPath = StatePath + ".tmp";
+            File.WriteAllText(tempPath, json);
+            File.Move(tempPath, StatePath, overwrite: true);
         }
         catch (Exception ex)
         {

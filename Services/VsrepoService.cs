@@ -41,9 +41,10 @@ public sealed class VsrepoService
 
         foreach (var probe in EnumerateCommonPythonCandidates())
         {
-            if (File.Exists(probe) && seen.Add(probe))
+            var trimmed = probe.Trim();
+            if (File.Exists(trimmed) && seen.Add(trimmed))
             {
-                candidates.Add(probe);
+                candidates.Add(trimmed);
             }
         }
 
@@ -55,9 +56,10 @@ public sealed class VsrepoService
                 continue;
             }
 
-            if (seen.Add(line))
+            var trimmed = line.Trim();
+            if (seen.Add(trimmed))
             {
-                candidates.Add(line.Trim());
+                candidates.Add(trimmed);
             }
         }
 
@@ -166,6 +168,9 @@ public sealed class VsrepoService
 
         try
         {
+            // SAFETY: All interpolated values are wrapped in PowerShell single-quoted strings where
+            // '' is the only escape. This is safe because PS single-quoted strings are fully literal
+            // (no $, backtick, or variable expansion). NEVER switch to double-quoted strings here.
             var escapedArgs = string.Join(", ", args.Select(static a => "'" + a.Replace("'", "''") + "'"));
             var script = $$"""
 $ErrorActionPreference = 'Continue'
@@ -198,7 +203,15 @@ Set-Content -Path '{{exitCodePath.Replace("'", "''")}}' -Value $LASTEXITCODE -En
             if (File.Exists(exitCodePath))
             {
                 var rawExitCode = await File.ReadAllTextAsync(exitCodePath, cancellationToken);
-                _ = int.TryParse(rawExitCode.Trim(), out exitCode);
+                if (!int.TryParse(rawExitCode.Trim(), out exitCode))
+                {
+                    AppLog.Write($"RunVsrepoElevatedAsync: failed to parse exit code from '{rawExitCode.Trim()}', defaulting to 1");
+                    exitCode = 1;
+                }
+            }
+            else
+            {
+                AppLog.Write("RunVsrepoElevatedAsync: exit code file not found, assuming process was killed or UAC denied");
             }
 
             return new CommandResult(exitCode, std, string.Empty);
@@ -403,9 +416,20 @@ Set-Content -Path '{{exitCodePath.Replace("'", "''")}}' -Value $LASTEXITCODE -En
         }
 
         process.Start();
-        var stdOutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
-        var stdErrTask = process.StandardError.ReadToEndAsync(cancellationToken);
-        await process.WaitForExitAsync(cancellationToken);
+        var stdOutTask = process.StandardOutput.ReadToEndAsync(CancellationToken.None);
+        var stdErrTask = process.StandardError.ReadToEndAsync(CancellationToken.None);
+        try
+        {
+            await process.WaitForExitAsync(cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            // Cancellation requested — kill the entire process tree to avoid orphaned children.
+            try { process.Kill(entireProcessTree: true); }
+            catch { /* best effort */ }
+            throw;
+        }
+
         var stdOut = await stdOutTask;
         var stdErr = await stdErrTask;
         return new CommandResult(process.ExitCode, stdOut, stdErr);

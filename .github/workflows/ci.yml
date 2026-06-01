@@ -1,0 +1,33 @@
+name: CI Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    strategy:
+      matrix:
+        configuration: [Debug, Release]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build (${{ matrix.configuration }})
+        run: dotnet build --no-restore --configuration ${{ matrix.configuration }}
+
+      - name: Publish (${{ matrix.configuration }})
+        run: dotnet publish --no-build --configuration ${{ matrix.configuration }} --runtime win-x64 --self-contained false

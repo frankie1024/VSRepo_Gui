@@ -84,7 +84,7 @@ public partial class App : Application
     {
         if (_themeMode == AppThemeMode.System)
         {
-            Dispatcher.Invoke(() => ApplyThemeMode(_themeMode));
+            Dispatcher.InvokeAsync(() => ApplyThemeMode(_themeMode));
         }
     }
 

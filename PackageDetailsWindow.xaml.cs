@@ -86,7 +86,14 @@ public partial class PackageDetailsWindow : WpfFluentWindow
             return;
         }
 
-        Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+        // Only allow http/https to prevent unexpected handlers (e.g. javascript:, file:).
+        if (!url.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+            && !url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        Process.Start(new ProcessStartInfo(url) { UseShellExecute = true })?.Dispose();
     }
 
     private void OpenWebsiteButton_Click(object sender, RoutedEventArgs e)
