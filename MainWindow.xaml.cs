@@ -48,6 +48,7 @@ public partial class MainWindow : WpfFluentWindow
     private bool _isBusy;
     private bool _isNavigationExpanded;
     private bool _isUpdatingThemeSelection;
+    private bool _isRestoringState;
 
     private sealed record PackageCommand(string Operation, bool Force);
 
@@ -228,6 +229,10 @@ public partial class MainWindow : WpfFluentWindow
         }
 
         AppendLog($"Probe failed: {_lastProbe.Message}");
+        _lastPaths = null;
+        DefinitionsPathTextBox.Text = string.Empty;
+        BinariesPathTextBox.Text = string.Empty;
+        ScriptsPathTextBox.Text = string.Empty;
         return false;
     }
 
@@ -483,6 +488,19 @@ public partial class MainWindow : WpfFluentWindow
 
     private void RestoreAppState()
     {
+        _isRestoringState = true;
+        try
+        {
+            RestoreAppStateCore();
+        }
+        finally
+        {
+            _isRestoringState = false;
+        }
+    }
+
+    private void RestoreAppStateCore()
+    {
         _appState = _appStateService.Load();
         ApplyThemeSelection();
 
@@ -683,6 +701,7 @@ public partial class MainWindow : WpfFluentWindow
     {
         if (_isBusy)
         {
+            StatusTextBlock.Text = "Operation in progress, please wait...";
             return;
         }
 
@@ -929,7 +948,7 @@ public partial class MainWindow : WpfFluentWindow
     private void FilterChanged(object sender, SelectionChangedEventArgs e)
     {
         UpdateStatusSummarySelection();
-        if (IsLoaded)
+        if (IsLoaded && !_isRestoringState)
         {
             ApplyFilters(_selectedPackage?.Identifier);
             SaveAppState();
@@ -951,7 +970,7 @@ public partial class MainWindow : WpfFluentWindow
 
     private async void TargetComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (IsLoaded && !string.IsNullOrWhiteSpace(PythonPathTextBox.Text) && !_isBusy)
+        if (IsLoaded && !_isRestoringState && !string.IsNullOrWhiteSpace(PythonPathTextBox.Text) && !_isBusy)
         {
             _lastPaths = null;
             await RefreshPackagesAsync(updateDefinitions: false, reprobe: false, reloadDefinitions: false);
@@ -968,6 +987,7 @@ public partial class MainWindow : WpfFluentWindow
     {
         if (_isBusy || PackagesGrid.SelectedItem is not PackageItem item)
         {
+            if (_isBusy) StatusTextBlock.Text = "Operation in progress, please wait...";
             return;
         }
 

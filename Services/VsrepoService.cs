@@ -118,7 +118,7 @@ public sealed class VsrepoService
             "spec = importlib.util.find_spec('vsrepo.vsrepo')",
             "result['has_vsrepo'] = spec is not None",
             "result['vsrepo_path'] = None if spec is None else spec.origin",
-            "print(json.dumps(result))",
+            "print('VSRGUI_PROBE:' + json.dumps(result))",
         });
 
         var command = await RunProcessAsync(pythonExe, ["-c", code], cancellationToken);
@@ -127,7 +127,13 @@ public sealed class VsrepoService
             return new ProbeResult(false, command.CombinedOutput, pythonExe, false, false, null, null, null);
         }
 
-        using var document = JsonDocument.Parse(command.StdOut);
+        // Extract the marker line — Python libraries may print warnings to stdout during import.
+        var jsonLine = command.StdOut.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries)
+            .LastOrDefault(l => l.StartsWith("VSRGUI_PROBE:"))
+            ?? throw new InvalidOperationException($"Probe script produced no valid output:{Environment.NewLine}{command.StdOut}");
+        var jsonText = jsonLine["VSRGUI_PROBE:".Length..];
+
+        using var document = JsonDocument.Parse(jsonText);
         var root = document.RootElement;
         var hasVs = root.GetProperty("has_vapoursynth").GetBoolean();
         var hasVsrepo = root.GetProperty("has_vsrepo").GetBoolean();
@@ -194,7 +200,17 @@ Set-Content -Path '{{exitCodePath.Replace("'", "''")}}' -Value $LASTEXITCODE -En
             };
 
             process.Start();
-            await process.WaitForExitAsync(cancellationToken);
+            try
+            {
+                await process.WaitForExitAsync(cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                // Best effort — Kill may fail on an elevated child from a non-elevated parent.
+                try { process.Kill(entireProcessTree: true); }
+                catch { /* ignored */ }
+                throw;
+            }
 
             var std = File.Exists(outputPath)
                 ? await File.ReadAllTextAsync(outputPath, cancellationToken)
@@ -293,6 +309,9 @@ Set-Content -Path '{{exitCodePath.Replace("'", "''")}}' -Value $LASTEXITCODE -En
                 status = PackageInstallState.InstalledUnknown;
             }
 
+            // Assumed vsrepo output columns: [Name] [Installed] [Latest] [Type] [Identifier]
+            // Index from end:                  ^[^5]     [^4]       [^3]    [^2]   [^1]
+            // So tokens[^1] = Identifier, tokens[^3] = Latest (displayed as installed version reference).
             var identifier = tokens[^1].Trim();
             var installedVersion = tokens[^3].Trim();
             if (string.IsNullOrWhiteSpace(identifier))
@@ -309,8 +328,17 @@ Set-Content -Path '{{exitCodePath.Replace("'", "''")}}' -Value $LASTEXITCODE -En
     public VsPackageRoot LoadDefinitions(string definitionsPath)
     {
         var json = File.ReadAllText(definitionsPath, Encoding.UTF8);
-        return JsonSerializer.Deserialize<VsPackageRoot>(json, JsonOptions)
-               ?? new VsPackageRoot();
+        var root = JsonSerializer.Deserialize<VsPackageRoot>(json, JsonOptions)
+                   ?? new VsPackageRoot();
+
+        // System.Text.Json does not enforce C# nullable annotations — explicit null in JSON overrides default.
+        root.Packages ??= [];
+        foreach (var pkg in root.Packages)
+        {
+            pkg.Releases ??= [];
+        }
+
+        return root;
     }
 
     public bool IsAdministrator()
