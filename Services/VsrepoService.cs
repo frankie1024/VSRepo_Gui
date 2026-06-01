@@ -110,9 +110,9 @@ public sealed class VsrepoService
             "result = {'python': sys.executable, 'has_vapoursynth': False, 'has_vsrepo': False, 'vapoursynth_path': None, 'vsrepo_path': None, 'plugin_dir': None, 'vapoursynth_error': None}",
             "try:",
             "    import vapoursynth as vs",
-            "    result['has_vapoursynth'] = True",
             "    result['vapoursynth_path'] = getattr(vs, '__file__', None)",
             "    result['plugin_dir'] = vs.get_plugin_dir()",
+            "    result['has_vapoursynth'] = True",
             "except Exception as exc:",
             "    result['vapoursynth_error'] = str(exc)",
             "spec = importlib.util.find_spec('vsrepo.vsrepo')",
@@ -309,11 +309,10 @@ Set-Content -Path '{{exitCodePath.Replace("'", "''")}}' -Value $LASTEXITCODE -En
                 status = PackageInstallState.InstalledUnknown;
             }
 
-            // Assumed vsrepo output columns: [Name] [Installed] [Latest] [Type] [Identifier]
-            // Index from end:                  ^[^5]     [^4]       [^3]    [^2]   [^1]
-            // So tokens[^1] = Identifier, tokens[^3] = Latest (displayed as installed version reference).
+            // vsrepo output columns: [Name] [Installed] [Latest] [Type] [Identifier]
+            // Index from end:          [^5]     [^4]       [^3]    [^2]   [^1]
             var identifier = tokens[^1].Trim();
-            var installedVersion = tokens[^3].Trim();
+            var installedVersion = tokens[^4].Trim();
             if (string.IsNullOrWhiteSpace(identifier))
             {
                 AppLog.Write($"GetInstalledAsync: empty identifier in line: {line.Trim()}");
@@ -330,6 +329,11 @@ Set-Content -Path '{{exitCodePath.Replace("'", "''")}}' -Value $LASTEXITCODE -En
         var json = File.ReadAllText(definitionsPath, Encoding.UTF8);
         var root = JsonSerializer.Deserialize<VsPackageRoot>(json, JsonOptions)
                    ?? new VsPackageRoot();
+
+        if (root.FileFormat < 1 || root.FileFormat > 5)
+        {
+            AppLog.Write($"Warning: unexpected definitions file format version {root.FileFormat}");
+        }
 
         // System.Text.Json does not enforce C# nullable annotations — explicit null in JSON overrides default.
         root.Packages ??= [];

@@ -241,7 +241,11 @@
                                       SelectionMode="Single"
                                       SelectionUnit="FullRow"
                                       SelectionChanged="PackagesGrid_SelectionChanged"
-                                      MouseDoubleClick="PackagesGrid_MouseDoubleClick">
+                                      MouseDoubleClick="PackagesGrid_MouseDoubleClick"
+                                      PreviewKeyDown="PackagesGrid_PreviewKeyDown"
+                                      VirtualizingPanel.IsVirtualizing="True"
+                                      VirtualizingPanel.VirtualizationMode="Recycling"
+                                      ScrollViewer.CanContentScroll="True">
                                 <DataGrid.Columns>
                                     <DataGridTemplateColumn Header="Action" Width="108">
                                         <DataGridTemplateColumn.CellTemplate>

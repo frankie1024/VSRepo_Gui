@@ -37,6 +37,7 @@ public partial class MainWindow : WpfFluentWindow
     private readonly ObservableCollection<PackageItem> _visiblePackages = [];
     private readonly CancellationTokenSource _shutdown = new();
     private readonly DispatcherTimer _searchDebounceTimer = new() { Interval = TimeSpan.FromMilliseconds(220) };
+    private readonly DispatcherTimer _stateDebounceTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
 
     private AppStateService.AppState _appState = new();
     private List<PackageItem> _allPackages = [];
@@ -72,6 +73,7 @@ public partial class MainWindow : WpfFluentWindow
         UpdateNavigationPaneLayout();
         ApplyThemeSensitiveStyles();
         _searchDebounceTimer.Tick += SearchDebounceTimer_Tick;
+        _stateDebounceTimer.Tick += StateDebounceTimer_Tick;
 
         Loaded += MainWindow_Loaded;
         Closed += MainWindow_Closed;
@@ -98,6 +100,7 @@ public partial class MainWindow : WpfFluentWindow
     private void MainWindow_Closed(object? sender, EventArgs e)
     {
         _searchDebounceTimer.Stop();
+        _stateDebounceTimer.Stop();
         SaveAppState();
         try
         {
@@ -106,7 +109,8 @@ public partial class MainWindow : WpfFluentWindow
         finally
         {
             _shutdown.Cancel();
-            _shutdown.Dispose();
+            // Do NOT Dispose here — pending async operations still reference _shutdown.Token.
+            // The finalizer will clean up the internal event handle.
         }
     }
 
@@ -364,6 +368,12 @@ public partial class MainWindow : WpfFluentWindow
             {
                 return release;
             }
+        }
+
+        // For VSPlugin, don't fall back to a release with no matching binary — it will fail at install time.
+        if (package.Type.Equals("VSPlugin", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
         }
 
         return package.Releases.FirstOrDefault();
@@ -920,7 +930,15 @@ public partial class MainWindow : WpfFluentWindow
 
     private async void DetectPythonButton_Click(object sender, RoutedEventArgs e)
     {
-        await AutoDetectPythonAsync();
+        try
+        {
+            await AutoDetectPythonAsync();
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            HandleException(ex, nameof(DetectPythonButton_Click));
+        }
     }
 
     private void BrowsePythonButton_Click(object sender, RoutedEventArgs e)
@@ -980,6 +998,13 @@ public partial class MainWindow : WpfFluentWindow
     private void PackagesGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         _selectedPackage = PackagesGrid.SelectedItem as PackageItem;
+        _stateDebounceTimer.Stop();
+        _stateDebounceTimer.Start();
+    }
+
+    private void StateDebounceTimer_Tick(object? sender, EventArgs e)
+    {
+        _stateDebounceTimer.Stop();
         SaveAppState();
     }
 
@@ -991,15 +1016,31 @@ public partial class MainWindow : WpfFluentWindow
             return;
         }
 
-        var dialog = new PackageDetailsWindow(item)
+        await ShowPackageDetailsAsync(item, nameof(PackagesGrid_MouseDoubleClick));
+    }
+
+    private async void PackagesGrid_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter && PackagesGrid.SelectedItem is PackageItem item)
         {
-            Owner = this
-        };
+            e.Handled = true;
+            if (_isBusy)
+            {
+                StatusTextBlock.Text = "Operation in progress, please wait...";
+                return;
+            }
+            await ShowPackageDetailsAsync(item, nameof(PackagesGrid_PreviewKeyDown));
+        }
+    }
+
+    private async Task ShowPackageDetailsAsync(PackageItem item, string source)
+    {
+        var dialog = new PackageDetailsWindow(item) { Owner = this };
         _ = dialog.ShowDialog();
 
         if (dialog.ShouldRunPrimaryAction)
         {
-            await RunPackageActionWorkflowAsync(item, nameof(PackagesGrid_MouseDoubleClick));
+            await RunPackageActionWorkflowAsync(item, source);
         }
     }
 
