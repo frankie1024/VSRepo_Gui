@@ -128,10 +128,9 @@ public partial class App : Application
 
         static void SetColor(string key, string color)
         {
-            if (Application.Current.Resources[key] is SolidColorBrush brush)
-            {
-                brush.Color = (Color)ColorConverter.ConvertFromString(color);
-            }
+            var newBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(color));
+            newBrush.Freeze();
+            Application.Current.Resources[key] = newBrush;
         }
     }
 
