@@ -28,6 +28,3 @@ jobs:
 
       - name: Build (${{ matrix.configuration }})
         run: dotnet build --no-restore --configuration ${{ matrix.configuration }}
-
-      - name: Publish (${{ matrix.configuration }})
-        run: dotnet publish --no-build --configuration ${{ matrix.configuration }} --runtime win-x64 --self-contained false
